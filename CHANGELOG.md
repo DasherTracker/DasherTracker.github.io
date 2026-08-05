@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.1] - 2026-08-04
+### Fixed
+- Made CSV row detection for Ratings and Feedback sections resilient across all cell offsets.
+
 ## [1.1.0] - 2026-08-04
 ### Added
 - Replicated full Google Sheet Dashboard layout.

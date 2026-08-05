@@ -51,10 +51,9 @@ function processData(data) {
 
     for (let i = 0; i < data.length; i++) {
         const row = data[i];
-        if (!row || row.length < 2) continue;
+        if (!row || row.length < 1) continue;
         
         const col0 = (row[0] || '').trim();
-        const col1 = (row[1] || '').trim();
         
         // 1. Total Row
         if (col0.toLowerCase() === 'total') {
@@ -62,12 +61,12 @@ function processData(data) {
             continue;
         }
         
-        // 2. Ratings Headers & Values
-        if (col1.toLowerCase() === 'lifetime') {
+        // 2. Ratings Headers & Values (detect 'lifetime' anywhere in row)
+        const isRatingsHeaderRow = row.some(c => (c || '').trim().toLowerCase() === 'lifetime');
+        if (isRatingsHeaderRow && !ratingsHeaders) {
             ratingsHeaders = row.map(c => (c || '').trim());
-            // find next non-empty row for values
             for (let j = i + 1; j < data.length; j++) {
-                if (data[j] && data[j][1] && data[j][1].trim() !== '') {
+                if (data[j] && data[j].some(c => (c || '').trim() !== '')) {
                     ratingsValues = data[j].map(c => (c || '').trim());
                     break;
                 }
@@ -75,11 +74,12 @@ function processData(data) {
             continue;
         }
         
-        // 3. Customer Feedback Headers & Values
-        if (col1.toLowerCase() === 'communication') {
+        // 3. Customer Feedback Headers & Values (detect 'communication' anywhere in row)
+        const isFeedbackHeaderRow = row.some(c => (c || '').trim().toLowerCase() === 'communication');
+        if (isFeedbackHeaderRow && !feedbackHeaders) {
             feedbackHeaders = row.map(c => (c || '').trim());
             for (let j = i + 1; j < data.length; j++) {
-                if (data[j] && data[j][1] && data[j][1].trim() !== '') {
+                if (data[j] && data[j].some(c => (c || '').trim() !== '')) {
                     feedbackValues = data[j].map(c => (c || '').trim());
                     break;
                 }
@@ -225,8 +225,7 @@ function renderRatings(headers, values) {
     }
     
     let html = '';
-    // Skip index 0 as it's empty in sheet layout
-    for (let i = 1; i < headers.length; i++) {
+    for (let i = 0; i < headers.length; i++) {
         const title = headers[i];
         const val = values[i] || '0';
         if (!title) continue;
@@ -256,7 +255,7 @@ function renderFeedback(headers, values) {
     }
     
     let html = '';
-    for (let i = 1; i < headers.length; i++) {
+    for (let i = 0; i < headers.length; i++) {
         const title = headers[i];
         const val = values[i] || '0';
         if (!title) continue;
