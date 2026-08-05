@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.3] - 2026-08-04
+### Fixed
+- Added cache buster query parameters (`?v=1.1.3`) to index.html to force browser cache invalidation for JavaScript and CSS updates.
+
 ## [1.1.2] - 2026-08-04
 ### Changed
 - Merged "No Reviews" and "% No Reviews" into a single combined card.
