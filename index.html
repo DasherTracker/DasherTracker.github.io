@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dasher Dashboard</title>
+    <meta name="description" content="Beautiful dashboard for Dasher Tracker data">
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+    <!-- PapaParse for CSV parsing -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+    <!-- Chart.js for data visualization -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="background-mesh"></div>
+    
+    <main class="dashboard-container">
+        <header class="dashboard-header">
+            <h1>Dasher Tracker</h1>
+            <p>Your real-time delivery earnings & analytics</p>
+            <button id="refreshBtn" class="refresh-btn" onclick="fetchDashboardData()">
+                Refresh Data
+            </button>
+        </header>
+
+        <section class="summary-cards" id="summaryCards">
+            <!-- Cards will be populated by JS -->
+            <div class="card skeleton"></div>
+            <div class="card skeleton"></div>
+            <div class="card skeleton"></div>
+            <div class="card skeleton"></div>
+        </section>
+
+        <section class="chart-section glass-panel">
+            <h2>Earnings Over Time</h2>
+            <div class="chart-container">
+                <canvas id="earningsChart"></canvas>
+            </div>
+        </section>
+
+        <section class="table-section glass-panel">
+            <h2>Recent Dash Sessions</h2>
+            <div class="table-responsive">
+                <table id="dashTable">
+                    <thead>
+                        <tr>
+                            <th>Month</th>
+                            <th>Hours</th>
+                            <th>Active Hours</th>
+                            <th>Deliveries</th>
+                            <th>Hourly Rate</th>
+                            <th>Tips</th>
+                            <th>Total Pay</th>
+                        </tr>
+                    </thead>
+                    <tbody id="dashTableBody">
+                        <!-- Rows populated by JS -->
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <script src="script.js"></script>
+</body>
+</html>
