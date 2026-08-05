@@ -1,5 +1,13 @@
 # Changelog
 
+## [1.1.0] - 2026-08-04
+### Added
+- Replicated full Google Sheet Dashboard layout.
+- Added all 13 columns to the Monthly Summary table (Hours, Active Hours, Miles, Base Pay, Tips, Cash Tips, Taxes, Total, Hourly Rate, # No Tipping, % No Tipping).
+- Added Grand Total row in tfoot.
+- Added Dasher Ratings & Star Breakdown section cards (LifeTime, Customer Rating, Overall Rating, 5★–1★, No Reviews, % No Reviews).
+- Added Customer Feedback & Compliments section badges (Communication, Order handling, Followed instructions, Friendliness, Above & Beyond).
+
 ## [1.0.0] - 2026-08-04
 ### Added
 - Initial release of the Dasher Tracker dashboard.

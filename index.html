@@ -40,7 +40,7 @@
         </section>
 
         <section class="table-section glass-panel">
-            <h2>Recent Dash Sessions</h2>
+            <h2>Monthly Summary</h2>
             <div class="table-responsive">
                 <table id="dashTable">
                     <thead>
@@ -48,16 +48,39 @@
                             <th>Month</th>
                             <th>Hours</th>
                             <th>Active Hours</th>
+                            <th>Miles</th>
                             <th>Deliveries</th>
-                            <th>Hourly Rate</th>
+                            <th>Base Pay</th>
                             <th>Tips</th>
-                            <th>Total Pay</th>
+                            <th>Cash Tips</th>
+                            <th>Taxes</th>
+                            <th>Total</th>
+                            <th>Hourly Rate</th>
+                            <th># No Tip</th>
+                            <th>% No Tip</th>
                         </tr>
                     </thead>
                     <tbody id="dashTableBody">
                         <!-- Rows populated by JS -->
                     </tbody>
+                    <tfoot id="dashTableFoot">
+                        <!-- Total Row populated by JS -->
+                    </tfoot>
                 </table>
+            </div>
+        </section>
+
+        <section class="ratings-section glass-panel">
+            <h2>Dasher Ratings & Review Breakdown</h2>
+            <div class="ratings-grid" id="ratingsGrid">
+                <!-- Populated by JS -->
+            </div>
+        </section>
+
+        <section class="feedback-section glass-panel">
+            <h2>Customer Feedback & Compliments</h2>
+            <div class="feedback-grid" id="feedbackGrid">
+                <!-- Populated by JS -->
             </div>
         </section>
     </main>

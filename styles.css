@@ -213,6 +213,93 @@ tbody tr:hover {
     background-color: rgba(255,255,255,0.03);
 }
 
+/* Total Row Styling */
+tfoot tr {
+    background: rgba(15, 23, 42, 0.85);
+    border-top: 2px solid var(--accent-color);
+    font-weight: 700;
+}
+
+tfoot td {
+    color: #f8fafc;
+    font-size: 0.95rem;
+}
+
+/* Ratings Grid */
+.ratings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 1rem;
+}
+
+.rating-card {
+    background: rgba(15, 23, 42, 0.5);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+    transition: transform 0.2s ease;
+}
+
+.rating-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(59, 130, 246, 0.4);
+}
+
+.rating-card .title {
+    color: var(--text-secondary);
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.4rem;
+    font-weight: 500;
+}
+
+.rating-card .val {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.rating-card.highlight-gold .val {
+    color: #f59e0b;
+}
+
+.rating-card.highlight-green .val {
+    color: var(--success);
+}
+
+/* Feedback Grid */
+.feedback-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 1.2rem;
+}
+
+.feedback-card {
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
+    border: 1px solid rgba(139, 92, 246, 0.25);
+    border-radius: 14px;
+    padding: 1.2rem;
+    text-align: center;
+    position: relative;
+    overflow: hidden;
+}
+
+.feedback-card .badge-title {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    margin-bottom: 0.5rem;
+    text-transform: capitalize;
+}
+
+.feedback-card .badge-count {
+    font-size: 1.8rem;
+    font-weight: 800;
+    color: #38bdf8;
+}
+
 .positive-val {
     color: var(--success);
     font-weight: 500;
