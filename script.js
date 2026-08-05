@@ -129,7 +129,7 @@ function processData(data) {
     renderSummary(totalEarnings, totalDeliveries, totalMonthsWorked);
     renderTable(monthlyRows);
     renderTotalRow(totalRow);
-    renderRatings(ratingsHeaders, ratingsValues);
+    renderRatings(ratingsHeaders, ratingsValues, totalRow);
     renderFeedback(feedbackHeaders, feedbackValues);
     renderChart(chartLabels, chartEarnings);
 }
@@ -217,34 +217,86 @@ function renderTotalRow(row) {
     `;
 }
 
-function renderRatings(headers, values) {
+function renderRatings(headers, values, totalRow) {
     const grid = document.getElementById('ratingsGrid');
     if (!headers || !values) {
         grid.innerHTML = '<p style="color: var(--text-secondary);">No ratings data found.</p>';
         return;
     }
     
-    let html = '';
+    // Create header-value map
+    const map = {};
     for (let i = 0; i < headers.length; i++) {
         const title = headers[i];
-        const val = values[i] || '0';
-        if (!title) continue;
-        
-        let highlightClass = '';
-        if (title.toLowerCase().includes('customer rating') || title.toLowerCase().includes('5 stars')) {
-            highlightClass = 'highlight-gold';
-        } else if (title.toLowerCase().includes('overall')) {
-            highlightClass = 'highlight-green';
+        if (title) {
+            map[title.toLowerCase().trim()] = (values[i] || '0').trim();
         }
-
-        html += `
-            <div class="rating-card ${highlightClass}">
-                <div class="title">${title}</div>
-                <div class="val">${val}</div>
-            </div>
-        `;
     }
-    grid.innerHTML = html;
+    
+    // Extracted values
+    const lifetime = map['lifetime'] || '0';
+    const customerRating = map['customer rating'] || '0';
+    const overallRating = map['overall dasher rating'] || '0';
+    const fiveStars = map['5 stars'] || '0';
+    const fourStars = map['4 stars'] || '0';
+    const threeStars = map['3 stars'] || '0';
+    const twoStars = map['2 stars'] || '0';
+    const oneStar = map["1 star's"] || map['1 star'] || '0';
+    const noReviews = map['no reviews'] || '0';
+    const pctNoReviews = map['% no reviews'] || '0%';
+
+    // Tip stats from totalRow
+    const noTipCount = totalRow ? (totalRow[11] || '0') : '0';
+    const noTipPct = totalRow ? (totalRow[12] || '0%') : '0%';
+    const totalTips = totalRow ? (totalRow[6] || '$0') : '$0';
+    const cashTips = totalRow ? (totalRow[7] || '$0') : '$0';
+
+    grid.innerHTML = `
+        <div class="rating-card">
+            <div class="title">LifeTime</div>
+            <div class="val">${lifetime}</div>
+        </div>
+        <div class="rating-card highlight-gold">
+            <div class="title">Customer Rating</div>
+            <div class="val">${customerRating}</div>
+        </div>
+        <div class="rating-card highlight-green">
+            <div class="title">Overall Rating</div>
+            <div class="val">${overallRating}</div>
+        </div>
+        <div class="rating-card highlight-gold">
+            <div class="title">5 Stars</div>
+            <div class="val">${fiveStars}</div>
+        </div>
+        <div class="rating-card">
+            <div class="title">4 Stars</div>
+            <div class="val">${fourStars}</div>
+        </div>
+        <div class="rating-card">
+            <div class="title">3 Stars</div>
+            <div class="val">${threeStars}</div>
+        </div>
+        <div class="rating-card">
+            <div class="title">2 Stars</div>
+            <div class="val">${twoStars}</div>
+        </div>
+        <div class="rating-card">
+            <div class="title">1 Star</div>
+            <div class="val">${oneStar}</div>
+        </div>
+        <div class="rating-card">
+            <div class="title">No Reviews</div>
+            <div class="val">${noReviews} <span style="font-size: 0.9rem; color: var(--text-secondary);">(${pctNoReviews})</span></div>
+        </div>
+        <div class="rating-card highlight-green">
+            <div class="title">Total Tips</div>
+            <div class="val">${totalTips} <span style="font-size: 0.85rem; color: var(--text-secondary);">(${cashTips} cash)</span></div>
+        </div>
+        <div class="rating-card">
+            <div class="title">No-Tip Orders</div>
+            <div class="val">${noTipCount} <span style="font-size: 0.85rem; color: var(--text-secondary);">(${noTipPct})</span></div>
+        </div>
+    `;
 }
 
 function renderFeedback(headers, values) {

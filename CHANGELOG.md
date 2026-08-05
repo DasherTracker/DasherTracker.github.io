@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.1.2] - 2026-08-04
+### Changed
+- Merged "No Reviews" and "% No Reviews" into a single combined card.
+- Added dedicated boxes for "Total Tips" and "No-Tip Orders".
+
 ## [1.1.1] - 2026-08-04
 ### Fixed
 - Made CSV row detection for Ratings and Feedback sections resilient across all cell offsets.
