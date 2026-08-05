@@ -234,7 +234,10 @@ function renderRatings(headers, values, totalRow) {
     }
     
     // Extracted values
-    const lifetime = map['lifetime'] || '0';
+    const lifetimeRaw = map['lifetime deliveries'] || map['lifetime'] || '0';
+    const lifetimeNum = parseInt(lifetimeRaw.replace(/[^0-9]/g, "")) || 0;
+    const lifetime = lifetimeNum > 0 ? lifetimeNum.toLocaleString('en-US') : lifetimeRaw;
+
     const customerRating = map['customer rating'] || '0';
     const overallRating = map['overall dasher rating'] || '0';
     const fiveStars = map['5 stars'] || '0';

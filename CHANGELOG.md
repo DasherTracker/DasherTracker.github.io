@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.1.4] - 2026-08-04
+### Fixed
+- Fixed exact header key matching for "LifeTime Deliveries" (was looking for "lifetime" instead of "lifetime deliveries").
+
 ## [1.1.3] - 2026-08-04
 ### Fixed
 - Added cache buster query parameters (`?v=1.1.3`) to index.html to force browser cache invalidation for JavaScript and CSS updates.
