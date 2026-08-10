@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.2.0] - 2026-08-10
+### Added
+- Added "Gas" expenditure data (column N / index 13 from Google Sheet Dashboard) to summary cards, monthly table, and total row.
+
 ## [1.1.4] - 2026-08-04
 ### Fixed
 - Fixed exact header key matching for "LifeTime Deliveries" (was looking for "lifetime" instead of "lifetime deliveries").

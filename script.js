@@ -45,6 +45,7 @@ function processData(data) {
     let totalEarnings = 0;
     let totalDeliveries = 0;
     let totalMonthsWorked = 0;
+    let totalGas = 0;
     
     const chartLabels = [];
     const chartEarnings = [];
@@ -93,9 +94,12 @@ function processData(data) {
             const deliveries = parseInt((row[4] || '0').replace(/[^0-9]/g, "")) || 0;
             const totalPayStr = row[9] || '$0';
             const totalPayNum = parseFloat(totalPayStr.replace(/[^0-9.-]+/g, "")) || 0;
+            const gasStr = row[13] || '$0.00';
+            const gasNum = parseFloat(gasStr.replace(/[^0-9.-]+/g, "")) || 0;
             
             totalEarnings += totalPayNum;
             totalDeliveries += deliveries;
+            totalGas += gasNum;
             
             if (totalPayNum > 0 || deliveries > 0) {
                 totalMonthsWorked++;
@@ -111,6 +115,7 @@ function processData(data) {
                 tips: row[6] || '$0.00',
                 cashTips: row[7] || '$0.00',
                 taxes: row[8] || '$0.00',
+                gas: gasStr,
                 totalPay: totalPayStr,
                 hourlyRate: row[10] || '$0.00',
                 noTipping: row[11] || '0',
@@ -126,7 +131,7 @@ function processData(data) {
         chartEarnings.push(r.totalPayNum);
     });
 
-    renderSummary(totalEarnings, totalDeliveries, totalMonthsWorked);
+    renderSummary(totalEarnings, totalDeliveries, totalMonthsWorked, totalGas);
     renderTable(monthlyRows);
     renderTotalRow(totalRow);
     renderRatings(ratingsHeaders, ratingsValues, totalRow);
@@ -134,12 +139,13 @@ function processData(data) {
     renderChart(chartLabels, chartEarnings);
 }
 
-function renderSummary(totalEarnings, totalDeliveries, totalShifts) {
+function renderSummary(totalEarnings, totalDeliveries, totalShifts, totalGas) {
     const summaryContainer = document.getElementById('summaryCards');
     
     // Create card HTML
     const formattedEarnings = totalEarnings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const formattedDeliveries = totalDeliveries.toLocaleString('en-US');
+    const formattedGas = totalGas.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     const formattedAvg = totalDeliveries > 0 ? (totalEarnings / totalDeliveries).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00';
 
     const cardsHtml = `
@@ -154,6 +160,10 @@ function renderSummary(totalEarnings, totalDeliveries, totalShifts) {
         <div class="card">
             <div class="card-title">Months Active</div>
             <div class="card-value">${totalShifts}</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Total Gas Spent</div>
+            <div class="card-value" style="color: #f87171;">$${formattedGas}</div>
         </div>
         <div class="card">
             <div class="card-title">Avg per Delivery</div>
@@ -180,6 +190,7 @@ function renderTable(rows) {
                 <td class="positive-val">${r.tips}</td>
                 <td>${r.cashTips}</td>
                 <td>${r.taxes}</td>
+                <td style="color: #f87171;">${r.gas}</td>
                 <td class="positive-val"><strong>${r.totalPay}</strong></td>
                 <td>${r.hourlyRate}</td>
                 <td>${r.noTipping}</td>
@@ -209,6 +220,7 @@ function renderTotalRow(row) {
             <td class="positive-val">${row[6] || '$0'}</td>
             <td>${row[7] || '$0'}</td>
             <td>${row[8] || '$0'}</td>
+            <td style="color: #f87171;">${row[13] || '$0.00'}</td>
             <td class="positive-val"><strong>${row[9] || '$0'}</strong></td>
             <td>${row[10] || '$0'}</td>
             <td>${row[11] || '0'}</td>
