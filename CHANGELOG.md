@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.3.1] - 2026-08-10
+### Fixed
+- Fixed row matching for ratings/feedback sections by using substring inclusion (`.includes('lifetime')`) instead of strict string equality.
+
 ## [1.3.0] - 2026-08-10
 ### Added
 - Added individual cards for every rating & review header from C17 to K17 (Customer Rating, Overall Rating, 5★ down to 1★, No Reviews, % No Reviews) matched directly to Row 18 values.

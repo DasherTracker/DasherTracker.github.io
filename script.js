@@ -62,8 +62,8 @@ function processData(data) {
             continue;
         }
         
-        // 2. Ratings Headers & Values (detect 'lifetime' anywhere in row)
-        const isRatingsHeaderRow = row.some(c => (c || '').trim().toLowerCase() === 'lifetime');
+        // 2. Ratings Headers & Values (detect 'lifetime' anywhere in row cell)
+        const isRatingsHeaderRow = row.some(c => (c || '').trim().toLowerCase().includes('lifetime'));
         if (isRatingsHeaderRow && !ratingsHeaders) {
             ratingsHeaders = row.map(c => (c || '').trim());
             for (let j = i + 1; j < data.length; j++) {
@@ -75,8 +75,8 @@ function processData(data) {
             continue;
         }
         
-        // 3. Customer Feedback Headers & Values (detect 'communication' anywhere in row)
-        const isFeedbackHeaderRow = row.some(c => (c || '').trim().toLowerCase() === 'communication');
+        // 3. Customer Feedback Headers & Values (detect 'communication' anywhere in row cell)
+        const isFeedbackHeaderRow = row.some(c => (c || '').trim().toLowerCase().includes('communication'));
         if (isFeedbackHeaderRow && !feedbackHeaders) {
             feedbackHeaders = row.map(c => (c || '').trim());
             for (let j = i + 1; j < data.length; j++) {
