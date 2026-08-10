@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.2.0] - 2026-08-10
+### Fixed
+- Switched CSV source URL to Google Visualization API (`gviz/tq?tqx=out:csv`). This endpoint provides direct CORS-allowed access with 0 HTTP 307 redirects or login challenges, completely eliminating browser fetch blocks and red error boxes.
+- Added automatic fallback mapping for Ratings & Feedback values.
+
 ## [2.1.0] - 2026-08-10
 ### Fixed
 - Added Smart `localStorage` Caching mechanism to instantly render data (0ms page load) and shield against Google Sheets CSV export rate limits.

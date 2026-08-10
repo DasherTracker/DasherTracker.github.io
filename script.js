@@ -1,4 +1,4 @@
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/1Fe7D2-0TQFHLdwy3mfTwyr-EXODkOdeIFhYxZOyB2MQ/export?format=csv&gid=1708220782';
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/1Fe7D2-0TQFHLdwy3mfTwyr-EXODkOdeIFhYxZOyB2MQ/gviz/tq?tqx=out:csv&gid=1708220782';
 const CACHE_KEY = 'dasher_tracker_data_v1';
 const CACHE_TIME_KEY = 'dasher_tracker_time_v1';
 
@@ -85,7 +85,6 @@ async function fetchDashboardData() {
     } catch (error) {
         console.warn("Direct fetch failed or rate limited:", error);
         
-        // Fallback to PapaParse download mode
         Papa.parse(CSV_URL, {
             download: true,
             header: false,
@@ -160,11 +159,11 @@ function processData(data) {
             const row = data[i];
             if (!row || row.length < 1) continue;
             
-            const col0 = (row[0] || '').trim();
+            const col0 = (row[0] || '').trim().replace(/^"|"$/g, '');
             
             // 1. Total Row
             if (col0.toLowerCase() === 'total') {
-                totalRow = row;
+                totalRow = row.map(c => (c || '').replace(/^"|"$/g, '').trim());
                 continue;
             }
             
@@ -174,10 +173,10 @@ function processData(data) {
                 return s.includes('lifetime') || s.includes('customer rating') || s.includes('overall dasher rating') || s.includes('5 stars');
             });
             if (isRatingsHeaderRow && !ratingsHeaders) {
-                ratingsHeaders = row.map(c => (c || '').trim());
+                ratingsHeaders = row.map(c => (c || '').replace(/^"|"$/g, '').trim());
                 for (let j = i + 1; j < data.length; j++) {
-                    if (data[j] && data[j].some(c => /^\d+/.test((c || '').trim()))) {
-                        ratingsValues = data[j].map(c => (c || '').trim());
+                    if (data[j] && data[j].some(c => /^\d+/.test((c || '').replace(/^"|"$/g, '').trim()))) {
+                        ratingsValues = data[j].map(c => (c || '').replace(/^"|"$/g, '').trim());
                         break;
                     }
                 }
@@ -190,10 +189,10 @@ function processData(data) {
                 return s.includes('communication') || s.includes('order handling') || s.includes('friendliness');
             });
             if (isFeedbackHeaderRow && !feedbackHeaders) {
-                feedbackHeaders = row.map(c => (c || '').trim());
+                feedbackHeaders = row.map(c => (c || '').replace(/^"|"$/g, '').trim());
                 for (let j = i + 1; j < data.length; j++) {
-                    if (data[j] && data[j].some(c => /^\d+/.test((c || '').trim()))) {
-                        feedbackValues = data[j].map(c => (c || '').trim());
+                    if (data[j] && data[j].some(c => /^\d+/.test((c || '').replace(/^"|"$/g, '').trim()))) {
+                        feedbackValues = data[j].map(c => (c || '').replace(/^"|"$/g, '').trim());
                         break;
                     }
                 }
@@ -205,25 +204,25 @@ function processData(data) {
             if (validMonths.includes(col0.toLowerCase())) {
                 const deliveries = parseInt((row[4] || '0').replace(/[^0-9]/g, "")) || 0;
                 
-                const basePayStr = row[5] || '$0';
+                const basePayStr = (row[5] || '$0').replace(/^"|"$/g, '').trim();
                 const basePayNum = parseFloat(basePayStr.replace(/[^0-9.-]+/g, "")) || 0;
                 
-                const tipsStr = row[6] || '$0';
+                const tipsStr = (row[6] || '$0').replace(/^"|"$/g, '').trim();
                 const tipsNum = parseFloat(tipsStr.replace(/[^0-9.-]+/g, "")) || 0;
                 
-                const cashTipsStr = row[7] || '$0';
+                const cashTipsStr = (row[7] || '$0').replace(/^"|"$/g, '').trim();
                 const cashTipsNum = parseFloat(cashTipsStr.replace(/[^0-9.-]+/g, "")) || 0;
                 
-                const taxesStr = row[8] || '$0';
+                const taxesStr = (row[8] || '$0').replace(/^"|"$/g, '').trim();
                 const taxesNum = parseFloat(taxesStr.replace(/[^0-9.-]+/g, "")) || 0;
 
-                const totalPayStr = row[9] || '$0';
+                const totalPayStr = (row[9] || '$0').replace(/^"|"$/g, '').trim();
                 const totalPayNum = parseFloat(totalPayStr.replace(/[^0-9.-]+/g, "")) || 0;
                 
-                const hourlyRateStr = row[10] || '$0.00';
+                const hourlyRateStr = (row[10] || '$0.00').replace(/^"|"$/g, '').trim();
                 const hourlyRateNum = parseFloat(hourlyRateStr.replace(/[^0-9.-]+/g, "")) || 0;
                 
-                const gasStr = row[13] || '$0.00';
+                const gasStr = (row[13] || '$0.00').replace(/^"|"$/g, '').trim();
                 const gasNum = parseFloat(gasStr.replace(/[^0-9.-]+/g, "")) || 0;
                 
                 totalEarnings += totalPayNum;
@@ -240,9 +239,9 @@ function processData(data) {
 
                 monthlyRows.push({
                     month: col0,
-                    hours: row[1] || '0',
-                    activeHours: row[2] || '0',
-                    miles: row[3] || '0.00',
+                    hours: (row[1] || '0').replace(/^"|"$/g, '').trim(),
+                    activeHours: (row[2] || '0').replace(/^"|"$/g, '').trim(),
+                    miles: (row[3] || '0.00').replace(/^"|"$/g, '').trim(),
                     deliveries,
                     basePay: basePayStr,
                     tips: tipsStr,
@@ -251,12 +250,39 @@ function processData(data) {
                     gas: gasStr,
                     totalPay: totalPayStr,
                     hourlyRate: hourlyRateStr,
-                    noTipping: row[11] || '0',
-                    pctNoTipping: row[12] || '0.00%',
+                    noTipping: (row[11] || '0').replace(/^"|"$/g, '').trim(),
+                    pctNoTipping: (row[12] || '0.00%').replace(/^"|"$/g, '').trim(),
                     totalPayNum,
                     gasNum,
                     hourlyRateNum
                 });
+            }
+        }
+
+        // Fallbacks for ratings & feedback if header row not in gviz CSV export
+        if (!ratingsHeaders) {
+            ratingsHeaders = ['LifeTime Deliveries', 'Customer Rating', 'Overall Dasher Rating', '5 stars', '4 stars', '3 stars', '2 stars', '1 star\'s', 'No Reviews', '% No reviews'];
+        }
+        if (!ratingsValues && data.length > 14) {
+            ratingsValues = data[14].map(c => (c || '').replace(/^"|"$/g, '').trim()).filter(c => c !== '');
+            // If row index 14 didn't have values, look for row with numbers
+            if (ratingsValues.length < 2) {
+                for (let k = 13; k < data.length; k++) {
+                    const rowClean = data[k].map(c => (c || '').replace(/^"|"$/g, '').trim()).filter(c => c !== '');
+                    if (rowClean.some(c => /^\d+/.test(c))) {
+                        ratingsValues = rowClean;
+                        break;
+                    }
+                }
+            }
+        }
+        if (!feedbackHeaders) {
+            feedbackHeaders = ['Communication', 'order handling', 'followed delivery instuctions', 'Friendliness', 'Above & Beyond'];
+        }
+        if (!feedbackValues && data.length > 15) {
+            feedbackValues = data[15].map(c => (c || '').replace(/^"|"$/g, '').trim()).filter(c => c !== '');
+            if (feedbackValues.length < 2 && data.length > 16) {
+                feedbackValues = data[16].map(c => (c || '').replace(/^"|"$/g, '').trim()).filter(c => c !== '');
             }
         }
 
