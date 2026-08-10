@@ -6,7 +6,7 @@
     <title>Dasher Dashboard</title>
     <meta name="description" content="Beautiful dashboard for Dasher Tracker data">
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=1.6.0">
+    <link rel="stylesheet" href="styles.css?v=2.0.0">
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Chart.js for data visualization -->
@@ -31,10 +31,18 @@
             <div class="card skeleton"></div>
             <div class="card skeleton"></div>
             <div class="card skeleton"></div>
+            <div class="card skeleton"></div>
         </section>
 
         <section class="chart-section glass-panel">
-            <h2>Earnings Over Time</h2>
+            <div class="chart-header-row">
+                <h2>Analytics Visualizer</h2>
+                <div class="chart-toggle-group">
+                    <button class="chart-btn active" id="chartBtnLine" onclick="switchChart('line')">📈 Earnings Trend</button>
+                    <button class="chart-btn" id="chartBtnBar" onclick="switchChart('bar')">📊 Pay vs. Gas</button>
+                    <button class="chart-btn" id="chartBtnDonut" onclick="switchChart('donut')">🍩 Income Split</button>
+                </div>
+            </div>
             <div class="chart-container">
                 <canvas id="earningsChart"></canvas>
             </div>
@@ -87,6 +95,6 @@
         </section>
     </main>
 
-    <script src="script.js?v=1.6.0"></script>
+    <script src="script.js?v=2.0.0"></script>
 </body>
 </html>

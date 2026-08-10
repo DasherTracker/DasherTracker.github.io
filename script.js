@@ -131,63 +131,139 @@ function processData(data) {
         }
     }
 
-    // Chart takes chronological months
+    // Chart datasets
     monthlyRows.forEach(r => {
         chartLabels.push(r.month);
         chartEarnings.push(r.totalPayNum);
+        chartGas.push(r.gasNum);
     });
+
+    cachedChartData = {
+        labels: chartLabels,
+        earnings: chartEarnings,
+        gas: chartGas,
+        breakdown: {
+            basePay: totalBasePay,
+            tips: totalTips,
+            cashTips: totalCashTips,
+            gas: totalGas,
+            taxes: totalTaxes
+        }
+    };
 
     renderSummary(totalEarnings, totalDeliveries, totalMonthsWorked, totalGas);
     renderTable(monthlyRows);
     renderTotalRow(totalRow);
     renderRatings(ratingsHeaders, ratingsValues);
     renderFeedback(feedbackHeaders, feedbackValues);
-    renderChart(chartLabels, chartEarnings);
+    renderChart(currentChartType);
+}
+
+function animateValue(elementId, targetValue, isCurrency = false, prefix = '', suffix = '', duration = 1000) {
+    const obj = document.getElementById(elementId);
+    if (!obj) return;
+    
+    let startTimestamp = null;
+    const step = (timestamp) => {
+        if (!startTimestamp) startTimestamp = timestamp;
+        const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+        // easeOutCubic
+        const easedProgress = 1 - Math.pow(1 - progress, 3);
+        const currentValue = easedProgress * targetValue;
+        
+        let formatted = '';
+        if (isCurrency) {
+            formatted = '$' + currentValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        } else {
+            formatted = Math.floor(currentValue).toLocaleString('en-US');
+        }
+        
+        obj.textContent = `${prefix}${formatted}${suffix}`;
+        if (progress < 1) {
+            window.requestAnimationFrame(step);
+        } else {
+            if (isCurrency) {
+                obj.textContent = '$' + targetValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + suffix;
+            } else {
+                obj.textContent = targetValue.toLocaleString('en-US') + suffix;
+            }
+        }
+    };
+    window.requestAnimationFrame(step);
 }
 
 function renderSummary(totalEarnings, totalDeliveries, totalShifts, totalGas) {
     const summaryContainer = document.getElementById('summaryCards');
     
-    // Create card HTML
-    const formattedEarnings = totalEarnings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const formattedDeliveries = totalDeliveries.toLocaleString('en-US');
-    const formattedGas = totalGas.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-    const formattedAvg = totalDeliveries > 0 ? (totalEarnings / totalDeliveries).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00';
+    const netProfit = totalEarnings - totalGas;
+    const gasRoi = totalGas > 0 ? (totalEarnings / totalGas) : 0;
+    const avgPerDelivery = totalDeliveries > 0 ? (totalEarnings / totalDeliveries) : 0;
 
     const cardsHtml = `
         <div class="card">
             <div class="card-title">Total Earnings</div>
-            <div class="card-value success">$${formattedEarnings}</div>
+            <div class="card-value success" id="cardValEarnings">$0.00</div>
+        </div>
+        <div class="card">
+            <div class="card-title">Net Profit (After Gas)</div>
+            <div class="card-value success" id="cardValNetProfit" style="color: #38bdf8;">$0.00</div>
         </div>
         <div class="card">
             <div class="card-title">Total Deliveries</div>
-            <div class="card-value">${formattedDeliveries}</div>
+            <div class="card-value" id="cardValDeliveries">0</div>
         </div>
         <div class="card">
-            <div class="card-title">Months Active</div>
-            <div class="card-value">${totalShifts}</div>
+            <div class="card-title">Gas Efficiency (ROI)</div>
+            <div class="card-value" id="cardValGasRoi" style="color: #a78bfa;">$0.00 / $1 Gas</div>
         </div>
         <div class="card">
             <div class="card-title">Total Gas Spent</div>
-            <div class="card-value" style="color: #f87171;">$${formattedGas}</div>
+            <div class="card-value" id="cardValGas" style="color: #f87171;">$0.00</div>
         </div>
         <div class="card">
             <div class="card-title">Avg per Delivery</div>
-            <div class="card-value success">$${formattedAvg}</div>
+            <div class="card-value success" id="cardValAvg">$0.00</div>
         </div>
     `;
     
     summaryContainer.innerHTML = cardsHtml;
+    
+    // Animate summary cards
+    animateValue('cardValEarnings', totalEarnings, true);
+    animateValue('cardValNetProfit', netProfit, true);
+    animateValue('cardValDeliveries', totalDeliveries, false);
+    animateValue('cardValGas', totalGas, true);
+    animateValue('cardValAvg', avgPerDelivery, true);
+    
+    // Gas ROI custom format
+    const roiObj = document.getElementById('cardValGasRoi');
+    if (roiObj) roiObj.textContent = `$${gasRoi.toFixed(2)} / $1 Gas`;
 }
 
 function renderTable(rows) {
     const tbody = document.getElementById('dashTableBody');
     let html = '';
     
+    // Find Max Pay and Max Hourly Rate
+    let maxPay = 0;
+    let maxRate = 0;
     rows.forEach(r => {
+        if (r.totalPayNum > maxPay) maxPay = r.totalPayNum;
+        if (r.hourlyRateNum > maxRate) maxRate = r.hourlyRateNum;
+    });
+    
+    rows.forEach(r => {
+        let monthBadge = '';
+        if (r.totalPayNum > 0 && r.totalPayNum === maxPay) {
+            monthBadge += `<span class="badge-tag badge-best-income">🏆 Top Pay</span>`;
+        }
+        if (r.hourlyRateNum > 0 && r.hourlyRateNum === maxRate) {
+            monthBadge += `<span class="badge-tag badge-best-rate">⚡ Peak Rate</span>`;
+        }
+
         html += `
             <tr>
-                <td><strong>${r.month}</strong></td>
+                <td><strong>${r.month}</strong>${monthBadge}</td>
                 <td>${r.hours}</td>
                 <td>${r.activeHours}</td>
                 <td>${r.miles}</td>
@@ -354,10 +430,18 @@ function renderFeedback(headers, values) {
         if (!rawTitle) continue;
 
         const title = formatTitle(rawTitle);
+        const lower = title.toLowerCase();
+        
+        let icon = '🏅';
+        if (lower.includes('communication')) icon = '💬';
+        else if (lower.includes('order')) icon = '🛍️';
+        else if (lower.includes('instructions')) icon = '📝';
+        else if (lower.includes('friendliness')) icon = '😊';
+        else if (lower.includes('above')) icon = '⭐';
 
         html += `
             <div class="feedback-card">
-                <div class="badge-title">${title}</div>
+                <div class="badge-title">${icon} ${title}</div>
                 <div class="badge-count">${val}</div>
             </div>
         `;
@@ -365,94 +449,138 @@ function renderFeedback(headers, values) {
     grid.innerHTML = html;
 }
 
+function switchChart(type) {
+    currentChartType = type;
+    
+    // Update active button state
+    ['line', 'bar', 'donut'].forEach(t => {
+        const btn = document.getElementById('chartBtn' + t.charAt(0).toUpperCase() + t.slice(1));
+        if (btn) {
+            if (t === type) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+    });
+
+    if (cachedChartData) {
+        renderChart(type);
+    }
+}
+
 let earningsChartInstance = null;
 
-function renderChart(labels, data) {
-    const ctx = document.getElementById('earningsChart').getContext('2d');
+function renderChart(type = 'line') {
+    if (!cachedChartData) return;
     
+    const ctx = document.getElementById('earningsChart').getContext('2d');
     if (earningsChartInstance) {
         earningsChartInstance.destroy();
     }
-    
-    // Create gradient
-    const gradient = ctx.createLinearGradient(0, 0, 0, 300);
-    gradient.addColorStop(0, 'rgba(59, 130, 246, 0.5)');
-    gradient.addColorStop(1, 'rgba(59, 130, 246, 0.0)');
 
-    earningsChartInstance = new Chart(ctx, {
-        type: 'line',
-        data: {
-            labels: labels,
-            datasets: [{
-                label: 'Earnings ($)',
-                data: data,
-                borderColor: '#3b82f6',
-                backgroundColor: gradient,
-                borderWidth: 2,
-                pointBackgroundColor: '#10b981',
-                pointBorderColor: '#fff',
-                pointHoverBackgroundColor: '#fff',
-                pointHoverBorderColor: '#10b981',
-                fill: true,
-                tension: 0.4
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: {
-                    display: false
+    const { labels, earnings, gas, breakdown } = cachedChartData;
+
+    let chartConfig = {};
+
+    if (type === 'line') {
+        chartConfig = {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: 'Total Earnings ($)',
+                    data: earnings,
+                    borderColor: '#3b82f6',
+                    backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                    borderWidth: 3,
+                    fill: true,
+                    tension: 0.4,
+                    pointBackgroundColor: '#60a5fa',
+                    pointHoverRadius: 7
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: '#94a3b8' } }
                 },
-                tooltip: {
-                    backgroundColor: 'rgba(30, 41, 59, 0.9)',
-                    titleColor: '#f8fafc',
-                    bodyColor: '#f8fafc',
-                    padding: 12,
-                    borderColor: 'rgba(255,255,255,0.1)',
-                    borderWidth: 1,
-                    displayColors: false,
-                    callbacks: {
-                        label: function(context) {
-                            let label = context.dataset.label || '';
-                            if (label) {
-                                label += ': ';
-                            }
-                            if (context.parsed.y !== null) {
-                                label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
-                            }
-                            return label;
-                        }
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                }
+            }
+        };
+    } else if (type === 'bar') {
+        chartConfig = {
+            type: 'bar',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Total Pay ($)',
+                        data: earnings,
+                        backgroundColor: 'rgba(16, 185, 129, 0.75)',
+                        borderColor: '#10b981',
+                        borderWidth: 1,
+                        borderRadius: 6
+                    },
+                    {
+                        label: 'Gas Spent ($)',
+                        data: gas,
+                        backgroundColor: 'rgba(248, 113, 113, 0.75)',
+                        borderColor: '#f87171',
+                        borderWidth: 1,
+                        borderRadius: 6
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { color: '#94a3b8' } }
+                },
+                scales: {
+                    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                }
+            }
+        };
+    } else if (type === 'donut') {
+        chartConfig = {
+            type: 'doughnut',
+            data: {
+                labels: ['Base Pay', 'Tips', 'Cash Tips', 'Gas Spent', 'Taxes'],
+                datasets: [{
+                    data: [
+                        breakdown.basePay,
+                        breakdown.tips,
+                        breakdown.cashTips,
+                        breakdown.gas,
+                        breakdown.taxes
+                    ],
+                    backgroundColor: [
+                        '#3b82f6',
+                        '#10b981',
+                        '#f59e0b',
+                        '#f87171',
+                        '#8b5cf6'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#0f172a'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'right',
+                        labels: { color: '#94a3b8', font: { size: 12 } }
                     }
                 }
-            },
-            scales: {
-                x: {
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.05)',
-                        drawBorder: false
-                    },
-                    ticks: {
-                        color: '#94a3b8'
-                    }
-                },
-                y: {
-                    grid: {
-                        color: 'rgba(255, 255, 255, 0.05)',
-                        drawBorder: false
-                    },
-                    ticks: {
-                        color: '#94a3b8',
-                        callback: function(value, index, values) {
-                            return '$' + value;
-                        }
-                    }
-                }
-            },
-            interaction: {
-                intersect: false,
-                mode: 'index',
-            },
-        }
-    });
+            }
+        };
+    }
+
+    earningsChartInstance = new Chart(ctx, chartConfig);
 }

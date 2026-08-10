@@ -1,5 +1,13 @@
 # Changelog
 
+## [2.0.0] - 2026-08-10
+### Added
+- Net Profit Widget (`Total Pay - Gas`) & Gas Efficiency ROI metric (`$ Earned per $1 Gas Spent`).
+- Multi-Chart Visualizer Switcher: Line (Earnings Trend), Bar (Pay vs Gas Comparison), and Donut (Income & Expense Split).
+- Animated Number Count-Up effect for all summary card metrics.
+- Achievement Badges in Monthly Table (🏆 Top Pay, ⚡ Peak Rate).
+- Custom icons & neon glow cards for Customer Feedback compliments (💬 🛍️ 📝 😊 ⭐).
+
 ## [1.6.0] - 2026-08-10
 ### Added
 - Redesigned Ratings & Reviews section with a dedicated Star Rating Breakdown line (5★ through 1★) featuring star graphics, rating counts, and visual gold progress bars.
