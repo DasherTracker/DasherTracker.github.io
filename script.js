@@ -1,42 +1,90 @@
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/1Fe7D2-0TQFHLdwy3mfTwyr-EXODkOdeIFhYxZOyB2MQ/export?format=csv&gid=1708220782';
+const CACHE_KEY = 'dasher_tracker_data_v1';
+const CACHE_TIME_KEY = 'dasher_tracker_time_v1';
 
 document.addEventListener('DOMContentLoaded', () => {
-    fetchDashboardData();
-    // Poll for updates every 60 seconds to avoid rate limits
-    setInterval(fetchDashboardData, 60000);
+    // 1. Immediately load cached data if available (0ms instant render)
+    const hasCached = loadFromLocalStorage();
+    
+    // 2. Fetch fresh data if no cache or cache older than 10 minutes (600,000 ms)
+    const lastFetch = localStorage.getItem(CACHE_TIME_KEY) || 0;
+    const isCacheStale = (Date.now() - parseInt(lastFetch)) > 600000;
+    
+    if (!hasCached || isCacheStale) {
+        fetchDashboardData();
+    }
 });
+
+function loadFromLocalStorage() {
+    try {
+        const cachedRaw = localStorage.getItem(CACHE_KEY);
+        if (cachedRaw) {
+            const data = JSON.parse(cachedRaw);
+            if (data && data.length > 0) {
+                processData(data);
+                updateLastUpdatedTag(parseInt(localStorage.getItem(CACHE_TIME_KEY) || Date.now()));
+                return true;
+            }
+        }
+    } catch (e) {
+        console.warn("Error reading localStorage cache:", e);
+    }
+    return false;
+}
+
+function updateLastUpdatedTag(timestamp) {
+    let tag = document.getElementById('lastUpdatedTag');
+    if (!tag) {
+        tag = document.createElement('span');
+        tag.id = 'lastUpdatedTag';
+        tag.style.cssText = 'font-size: 0.8rem; color: var(--text-secondary); margin-left: 0.8rem; vertical-align: middle;';
+        const header = document.querySelector('.dashboard-header p');
+        if (header) header.appendChild(tag);
+    }
+    const minsAgo = Math.floor((Date.now() - timestamp) / 60000);
+    tag.textContent = minsAgo < 1 ? '• Updated just now' : `• Updated ${minsAgo}m ago`;
+}
 
 async function fetchDashboardData() {
     const refreshBtn = document.getElementById('refreshBtn');
     if (refreshBtn) refreshBtn.classList.add('loading');
     
-    // Clear any previous error banner
     const existingError = document.getElementById('errorBanner');
     if (existingError) existingError.remove();
 
     try {
-        // Attempt direct fetch first for speed & reliability
         const response = await fetch(CSV_URL);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
         const csvText = await response.text();
         
+        // Rate-Limit check: If Google returned HTML instead of CSV
+        if (csvText.trim().toLowerCase().startsWith('<!doctype') || csvText.trim().toLowerCase().startsWith('<html')) {
+            throw new Error("Google Sheets rate limited request.");
+        }
+
         Papa.parse(csvText, {
             header: false,
             skipEmptyLines: false,
             complete: function(results) {
                 if (results.data && results.data.length > 0) {
+                    try {
+                        localStorage.setItem(CACHE_KEY, JSON.stringify(results.data));
+                        localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+                    } catch (e) {}
+                    
                     processData(results.data);
+                    updateLastUpdatedTag(Date.now());
                 } else {
-                    renderError("CSV data is empty.");
+                    handleFetchFailure("CSV data is empty.");
                 }
             },
             error: function(err) {
                 console.error("PapaParse error:", err);
-                renderError("Failed to parse sheet data.");
+                handleFetchFailure("Failed to parse sheet data.");
             }
         });
     } catch (error) {
-        console.warn("Direct fetch failed, trying PapaParse download fallback:", error);
+        console.warn("Direct fetch failed or rate limited:", error);
+        
         // Fallback to PapaParse download mode
         Papa.parse(CSV_URL, {
             download: true,
@@ -44,18 +92,33 @@ async function fetchDashboardData() {
             skipEmptyLines: false,
             complete: function(results) {
                 if (results.data && results.data.length > 0) {
+                    try {
+                        localStorage.setItem(CACHE_KEY, JSON.stringify(results.data));
+                        localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
+                    } catch (e) {}
+                    
                     processData(results.data);
+                    updateLastUpdatedTag(Date.now());
                 } else {
-                    renderError("Unable to fetch Google Sheet CSV data.");
+                    handleFetchFailure("Unable to fetch CSV data.");
                 }
             },
             error: function(err) {
                 console.error("PapaParse download error:", err);
-                renderError("Failed to load Google Sheet. Please ensure the sheet is shared/published.");
+                handleFetchFailure("Google Sheets rate limit active. Showing cached data.");
             }
         });
     } finally {
         if (refreshBtn) refreshBtn.classList.remove('loading');
+    }
+}
+
+function handleFetchFailure(msg) {
+    const loadedFromCache = loadFromLocalStorage();
+    if (!loadedFromCache) {
+        renderError(msg);
+    } else {
+        console.info("Rate limit active, displaying cached data seamlessly.");
     }
 }
 

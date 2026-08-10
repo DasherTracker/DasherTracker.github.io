@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.1.0] - 2026-08-10
+### Fixed
+- Added Smart `localStorage` Caching mechanism to instantly render data (0ms page load) and shield against Google Sheets CSV export rate limits.
+- Added Anti-Rate-Limit HTML detection to catch Google Sheets redirect pages (302/429) and seamlessly display cached data.
+- Removed aggressive 60-second polling interval to prevent Google Sheets IP rate-limiting.
+
 ## [2.0.2] - 2026-08-10
 ### Fixed
 - Added dual fetch fallback (direct `fetch` with fallback to `Papa.parse(..., { download: true })`) to overcome browser CORS or network fetch blocks.
