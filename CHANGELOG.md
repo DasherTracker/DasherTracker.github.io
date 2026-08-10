@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.5.0] - 2026-08-10
+### Changed
+- Cleaned up title text across rating and feedback cards (fixed typos, quotes, and case).
+- Added star badge icon (`★`) for 5 Stars rating card and enhanced glow effects in CSS.
+
 ## [1.4.0] - 2026-08-10
 ### Fixed
 - Bulletproofed section row parsing by checking multiple keywords (e.g., 'customer rating', '5 stars') and matching value rows using digit validation to handle multiline CSV headers like 'Above & Beyond'.

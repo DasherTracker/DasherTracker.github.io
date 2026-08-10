@@ -238,12 +238,13 @@ tfoot td {
     border-radius: 12px;
     padding: 1rem;
     text-align: center;
-    transition: transform 0.2s ease;
+    transition: all 0.3s ease;
 }
 
 .rating-card:hover {
     transform: translateY(-3px);
     border-color: rgba(59, 130, 246, 0.4);
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.15);
 }
 
 .rating-card .title {
@@ -263,10 +264,12 @@ tfoot td {
 
 .rating-card.highlight-gold .val {
     color: #f59e0b;
+    text-shadow: 0 0 10px rgba(245, 158, 11, 0.3);
 }
 
 .rating-card.highlight-green .val {
     color: var(--success);
+    text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
 }
 
 /* Feedback Grid */
@@ -277,13 +280,20 @@ tfoot td {
 }
 
 .feedback-card {
-    background: linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(139, 92, 246, 0.1) 100%);
-    border: 1px solid rgba(139, 92, 246, 0.25);
+    background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(139, 92, 246, 0.12) 100%);
+    border: 1px solid rgba(139, 92, 246, 0.3);
     border-radius: 14px;
     padding: 1.2rem;
     text-align: center;
     position: relative;
     overflow: hidden;
+    transition: all 0.3s ease;
+}
+
+.feedback-card:hover {
+    transform: translateY(-3px);
+    border-color: rgba(59, 130, 246, 0.6);
+    box-shadow: 0 4px 20px rgba(59, 130, 246, 0.25);
 }
 
 .feedback-card .badge-title {

@@ -235,6 +235,25 @@ function renderTotalRow(row) {
     `;
 }
 
+function formatTitle(title) {
+    if (!title) return '';
+    let clean = title.replace(/^"|"$/g, '').replace(/\\"/g, '"').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    
+    const lower = clean.toLowerCase();
+    if (lower === "1 star's" || lower === "1 star") return "1 Star";
+    if (lower === "2 stars") return "2 Stars";
+    if (lower === "3 stars") return "3 Stars";
+    if (lower === "4 stars") return "4 Stars";
+    if (lower === "5 stars") return "5 Stars ★";
+    if (lower === "lifetime deliveries") return "Lifetime Deliveries";
+    if (lower === "% no reviews") return "% No Reviews";
+    if (lower === "order handling") return "Order Handling";
+    if (lower.includes("instuctions") || lower.includes("instructions")) return "Followed Instructions";
+    if (lower.includes("above") && lower.includes("beyond")) return "Above & Beyond";
+    
+    return clean.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+}
+
 function renderRatings(headers, values) {
     const grid = document.getElementById('ratingsGrid');
     if (!headers || !values) {
@@ -244,12 +263,14 @@ function renderRatings(headers, values) {
     
     let html = '';
     for (let i = 0; i < headers.length; i++) {
-        const title = (headers[i] || '').trim();
+        const rawTitle = (headers[i] || '').trim();
         const val = (values[i] || '0').trim();
-        if (!title) continue;
+        if (!rawTitle) continue;
+        
+        const title = formatTitle(rawTitle);
         
         let highlightClass = '';
-        const lower = title.toLowerCase();
+        const lower = rawTitle.toLowerCase();
         if (lower.includes('customer rating') || lower.includes('5 stars')) {
             highlightClass = 'highlight-gold';
         } else if (lower.includes('overall')) {
@@ -275,16 +296,15 @@ function renderFeedback(headers, values) {
     
     let html = '';
     for (let i = 0; i < headers.length; i++) {
-        const title = headers[i];
-        const val = values[i] || '0';
-        if (!title) continue;
+        const rawTitle = (headers[i] || '').trim();
+        const val = (values[i] || '0').trim();
+        if (!rawTitle) continue;
 
-        // Clean up title (e.g. "Above \n& \nBeyond" -> "Above & Beyond")
-        const cleanTitle = title.replace(/\n/g, ' ').replace(/\s+/g, ' ');
+        const title = formatTitle(rawTitle);
 
         html += `
             <div class="feedback-card">
-                <div class="badge-title">${cleanTitle}</div>
+                <div class="badge-title">${title}</div>
                 <div class="badge-count">${val}</div>
             </div>
         `;
