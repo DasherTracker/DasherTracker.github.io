@@ -62,12 +62,15 @@ function processData(data) {
             continue;
         }
         
-        // 2. Ratings Headers & Values (detect 'lifetime' anywhere in row cell)
-        const isRatingsHeaderRow = row.some(c => (c || '').trim().toLowerCase().includes('lifetime'));
+        // 2. Ratings Headers & Values
+        const isRatingsHeaderRow = row.some(c => {
+            const s = (c || '').trim().toLowerCase();
+            return s.includes('lifetime') || s.includes('customer rating') || s.includes('overall dasher rating') || s.includes('5 stars');
+        });
         if (isRatingsHeaderRow && !ratingsHeaders) {
             ratingsHeaders = row.map(c => (c || '').trim());
             for (let j = i + 1; j < data.length; j++) {
-                if (data[j] && data[j].some(c => (c || '').trim() !== '')) {
+                if (data[j] && data[j].some(c => /^\d+/.test((c || '').trim()))) {
                     ratingsValues = data[j].map(c => (c || '').trim());
                     break;
                 }
@@ -75,12 +78,15 @@ function processData(data) {
             continue;
         }
         
-        // 3. Customer Feedback Headers & Values (detect 'communication' anywhere in row cell)
-        const isFeedbackHeaderRow = row.some(c => (c || '').trim().toLowerCase().includes('communication'));
+        // 3. Customer Feedback Headers & Values
+        const isFeedbackHeaderRow = row.some(c => {
+            const s = (c || '').trim().toLowerCase();
+            return s.includes('communication') || s.includes('order handling') || s.includes('friendliness');
+        });
         if (isFeedbackHeaderRow && !feedbackHeaders) {
             feedbackHeaders = row.map(c => (c || '').trim());
             for (let j = i + 1; j < data.length; j++) {
-                if (data[j] && data[j].some(c => (c || '').trim() !== '')) {
+                if (data[j] && data[j].some(c => /^\d+/.test((c || '').trim()))) {
                     feedbackValues = data[j].map(c => (c || '').trim());
                     break;
                 }

@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.4.0] - 2026-08-10
+### Fixed
+- Bulletproofed section row parsing by checking multiple keywords (e.g., 'customer rating', '5 stars') and matching value rows using digit validation to handle multiline CSV headers like 'Above & Beyond'.
+
 ## [1.3.1] - 2026-08-10
 ### Fixed
 - Fixed row matching for ratings/feedback sections by using substring inclusion (`.includes('lifetime')`) instead of strict string equality.
