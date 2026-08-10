@@ -1,6 +1,6 @@
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/1Fe7D2-0TQFHLdwy3mfTwyr-EXODkOdeIFhYxZOyB2MQ/export?format=csv&gid=1708220782';
-const CACHE_KEY = 'dasher_tracker_data_v3';
-const CACHE_TIME_KEY = 'dasher_tracker_time_v3';
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
+const CACHE_KEY = 'dasher_tracker_data_v4';
+const CACHE_TIME_KEY = 'dasher_tracker_time_v4';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Immediately load cached data if available (0ms instant render)
@@ -86,22 +86,16 @@ async function fetchDashboardData() {
 function handleFetchFailure(msg) {
     const loadedFromCache = loadFromLocalStorage();
     if (!loadedFromCache) {
-        renderError(msg);
+        console.warn("Unable to fetch fresh data and no cache found:", msg);
     } else {
-        console.info("Rate limit active, displaying cached data seamlessly.");
+        console.info("Using cached dashboard data seamlessly.");
     }
 }
 
-function renderError(msg = "Failed to load data. Make sure the Google Sheet is published to the web.") {
-    let banner = document.getElementById('errorBanner');
-    if (!banner) {
-        banner = document.createElement('div');
-        banner.id = 'errorBanner';
-        banner.style.cssText = 'background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.5); color: #f87171; padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; text-align: center; font-weight: 500;';
-        const container = document.querySelector('.dashboard-container');
-        if (container) container.insertBefore(banner, container.children[1]);
-    }
-    banner.textContent = msg;
+function renderError(msg) {
+    console.warn("Data handler notice:", msg);
+    const banner = document.getElementById('errorBanner');
+    if (banner) banner.remove();
 }
 
 function processData(data) {

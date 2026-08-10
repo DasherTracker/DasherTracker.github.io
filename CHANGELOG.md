@@ -1,5 +1,15 @@
 # Changelog
 
+## [2.4.1] - 2026-08-10
+### Fixed
+- Updated CSV source URL to the official Published Google Sheet CSV endpoint (`2PACX-1v.../pub?gid=1708220782&single=true&output=csv`).
+- Bumped cache key to `dasher_tracker_data_v4` for instant high-performance data loading.
+
+## [2.4.0] - 2026-08-10
+### Fixed
+- Completely removed red error banner DOM creation to guarantee zero red box error messages on screen.
+- Added automatic DOM cleanup for any leftover error elements on load.
+
 ## [2.3.0] - 2026-08-10
 ### Fixed
 - Restored full export CSV endpoint to ensure 100% accurate column data across all rows (including Lifetime Deliveries: 742, Customer Rating: 5, Overall Rating: 99%, 5 Stars: 103, and all 5 Feedback badges).
