@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.3.0] - 2026-08-10
+### Added
+- Added individual cards for every rating & review header from C17 to K17 (Customer Rating, Overall Rating, 5★ down to 1★, No Reviews, % No Reviews) matched directly to Row 18 values.
+
 ## [1.2.0] - 2026-08-10
 ### Added
 - Added "Gas" expenditure data (column N / index 13 from Google Sheet Dashboard) to summary cards, monthly table, and total row.
