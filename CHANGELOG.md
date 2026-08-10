@@ -1,5 +1,10 @@
 # Changelog
 
+## [1.6.0] - 2026-08-10
+### Added
+- Redesigned Ratings & Reviews section with a dedicated Star Rating Breakdown line (5★ through 1★) featuring star graphics, rating counts, and visual gold progress bars.
+- Elevated top hero metrics (Lifetime Deliveries, Customer Rating ★ 5.0, Overall Rating 99%, Unreviewed Orders).
+
 ## [1.5.0] - 2026-08-10
 ### Changed
 - Cleaned up title text across rating and feedback cards (fixed typos, quotes, and case).

@@ -261,30 +261,83 @@ function renderRatings(headers, values) {
         return;
     }
     
-    let html = '';
+    // Header to value mapping
+    const map = {};
     for (let i = 0; i < headers.length; i++) {
-        const rawTitle = (headers[i] || '').trim();
-        const val = (values[i] || '0').trim();
-        if (!rawTitle) continue;
-        
-        const title = formatTitle(rawTitle);
-        
-        let highlightClass = '';
-        const lower = rawTitle.toLowerCase();
-        if (lower.includes('customer rating') || lower.includes('5 stars')) {
-            highlightClass = 'highlight-gold';
-        } else if (lower.includes('overall')) {
-            highlightClass = 'highlight-green';
+        if (headers[i]) {
+            map[headers[i].toLowerCase().trim()] = (values[i] || '0').trim();
         }
-
-        html += `
-            <div class="rating-card ${highlightClass}">
-                <div class="title">${title}</div>
-                <div class="val">${val}</div>
-            </div>
-        `;
     }
-    grid.innerHTML = html;
+    
+    const lifetime = map['lifetime deliveries'] || map['lifetime'] || '0';
+    const customerRating = map['customer rating'] || '0';
+    const overallRating = map['overall dasher rating'] || '0';
+    
+    const fiveStars = parseInt(map['5 stars'] || '0') || 0;
+    const fourStars = parseInt(map['4 stars'] || '0') || 0;
+    const threeStars = parseInt(map['3 stars'] || '0') || 0;
+    const twoStars = parseInt(map['2 stars'] || '0') || 0;
+    const oneStar = parseInt(map["1 star's"] || map['1 star'] || '0') || 0;
+    
+    const totalRated = (fiveStars + fourStars + threeStars + twoStars + oneStar) || 1;
+    
+    const noReviews = map['no reviews'] || '0';
+    const pctNoReviews = map['% no reviews'] || '0%';
+
+    grid.innerHTML = `
+        <div class="ratings-hero-row">
+            <div class="hero-rating-card">
+                <div class="hero-label">Lifetime Deliveries</div>
+                <div class="hero-val">${lifetime}</div>
+            </div>
+            <div class="hero-rating-card highlight-gold">
+                <div class="hero-label">Customer Rating</div>
+                <div class="hero-val gold">★ ${customerRating}</div>
+            </div>
+            <div class="hero-rating-card highlight-green">
+                <div class="hero-label">Overall Rating</div>
+                <div class="hero-val green">${overallRating}%</div>
+            </div>
+            <div class="hero-rating-card">
+                <div class="hero-label">Unreviewed Orders</div>
+                <div class="hero-val">${noReviews} <span class="sub-pct">(${pctNoReviews})</span></div>
+            </div>
+        </div>
+
+        <div class="star-breakdown-container">
+            <div class="star-breakdown-header">
+                <h3>Star Rating Breakdown</h3>
+                <span class="total-reviews-count">${totalRated.toLocaleString('en-US')} Total Reviews</span>
+            </div>
+            <div class="star-rows-grid">
+                <div class="star-rank-card star-5">
+                    <div class="star-stars">★★★★★</div>
+                    <div class="star-count">${fiveStars}</div>
+                    <div class="star-bar-bg"><div class="star-bar-fill" style="width: ${(fiveStars/totalRated)*100}%;"></div></div>
+                </div>
+                <div class="star-rank-card star-4">
+                    <div class="star-stars">★★★★☆</div>
+                    <div class="star-count">${fourStars}</div>
+                    <div class="star-bar-bg"><div class="star-bar-fill" style="width: ${(fourStars/totalRated)*100}%;"></div></div>
+                </div>
+                <div class="star-rank-card star-3">
+                    <div class="star-stars">★★★☆☆</div>
+                    <div class="star-count">${threeStars}</div>
+                    <div class="star-bar-bg"><div class="star-bar-fill" style="width: ${(threeStars/totalRated)*100}%;"></div></div>
+                </div>
+                <div class="star-rank-card star-2">
+                    <div class="star-stars">★★☆☆☆</div>
+                    <div class="star-count">${twoStars}</div>
+                    <div class="star-bar-bg"><div class="star-bar-fill" style="width: ${(twoStars/totalRated)*100}%;"></div></div>
+                </div>
+                <div class="star-rank-card star-1">
+                    <div class="star-stars">★☆☆☆☆</div>
+                    <div class="star-count">${oneStar}</div>
+                    <div class="star-bar-bg"><div class="star-bar-fill" style="width: ${(oneStar/totalRated)*100}%;"></div></div>
+                </div>
+            </div>
+        </div>
+    `;
 }
 
 function renderFeedback(headers, values) {
