@@ -10,28 +10,65 @@ async function fetchDashboardData() {
     const refreshBtn = document.getElementById('refreshBtn');
     if (refreshBtn) refreshBtn.classList.add('loading');
     
+    // Clear any previous error banner
+    const existingError = document.getElementById('errorBanner');
+    if (existingError) existingError.remove();
+
     try {
-        Papa.parse(CSV_URL, {
-            download: true,
+        // Attempt direct fetch first for speed & reliability
+        const response = await fetch(CSV_URL);
+        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+        const csvText = await response.text();
+        
+        Papa.parse(csvText, {
             header: false,
+            skipEmptyLines: false,
             complete: function(results) {
-                processData(results.data);
+                if (results.data && results.data.length > 0) {
+                    processData(results.data);
+                } else {
+                    renderError("CSV data is empty.");
+                }
             },
             error: function(err) {
-                console.error("Error fetching CSV:", err);
-                renderError();
+                console.error("PapaParse error:", err);
+                renderError("Failed to parse sheet data.");
             }
         });
     } catch (error) {
-        console.error("Fetch error:", error);
-        renderError();
+        console.warn("Direct fetch failed, trying PapaParse download fallback:", error);
+        // Fallback to PapaParse download mode
+        Papa.parse(CSV_URL, {
+            download: true,
+            header: false,
+            skipEmptyLines: false,
+            complete: function(results) {
+                if (results.data && results.data.length > 0) {
+                    processData(results.data);
+                } else {
+                    renderError("Unable to fetch Google Sheet CSV data.");
+                }
+            },
+            error: function(err) {
+                console.error("PapaParse download error:", err);
+                renderError("Failed to load Google Sheet. Please ensure the sheet is shared/published.");
+            }
+        });
     } finally {
         if (refreshBtn) refreshBtn.classList.remove('loading');
     }
 }
 
-function renderError() {
-    document.getElementById('summaryCards').innerHTML = '<div style="color: #ef4444;">Failed to load data. Make sure the Google Sheet is published to the web.</div>';
+function renderError(msg = "Failed to load data. Make sure the Google Sheet is published to the web.") {
+    let banner = document.getElementById('errorBanner');
+    if (!banner) {
+        banner = document.createElement('div');
+        banner.id = 'errorBanner';
+        banner.style.cssText = 'background: rgba(239, 68, 68, 0.2); border: 1px solid rgba(239, 68, 68, 0.5); color: #f87171; padding: 1rem; border-radius: 12px; margin-bottom: 1.5rem; text-align: center; font-weight: 500;';
+        const container = document.querySelector('.dashboard-container');
+        if (container) container.insertBefore(banner, container.children[1]);
+    }
+    banner.textContent = msg;
 }
 
 function processData(data) {
@@ -504,116 +541,128 @@ let earningsChartInstance = null;
 function renderChart(type = 'line') {
     if (!cachedChartData) return;
     
-    const ctx = document.getElementById('earningsChart').getContext('2d');
-    if (earningsChartInstance) {
-        earningsChartInstance.destroy();
-    }
+    const canvas = document.getElementById('earningsChart');
+    if (!canvas) return;
 
-    const { labels, earnings, gas, breakdown } = cachedChartData;
+    try {
+        if (typeof Chart === 'undefined') {
+            console.warn("Chart.js library is not loaded.");
+            return;
+        }
 
-    let chartConfig = {};
+        const ctx = canvas.getContext('2d');
+        if (earningsChartInstance) {
+            earningsChartInstance.destroy();
+        }
 
-    if (type === 'line') {
-        chartConfig = {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [{
-                    label: 'Total Earnings ($)',
-                    data: earnings,
-                    borderColor: '#3b82f6',
-                    backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                    borderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    pointBackgroundColor: '#60a5fa',
-                    pointHoverRadius: 7
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { labels: { color: '#94a3b8' } }
-                },
-                scales: {
-                    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
-                }
-            }
-        };
-    } else if (type === 'bar') {
-        chartConfig = {
-            type: 'bar',
-            data: {
-                labels,
-                datasets: [
-                    {
-                        label: 'Total Pay ($)',
+        const { labels, earnings, gas, breakdown } = cachedChartData;
+
+        let chartConfig = {};
+
+        if (type === 'line') {
+            chartConfig = {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Total Earnings ($)',
                         data: earnings,
-                        backgroundColor: 'rgba(16, 185, 129, 0.75)',
-                        borderColor: '#10b981',
-                        borderWidth: 1,
-                        borderRadius: 6
-                    },
-                    {
-                        label: 'Gas Spent ($)',
-                        data: gas,
-                        backgroundColor: 'rgba(248, 113, 113, 0.75)',
-                        borderColor: '#f87171',
-                        borderWidth: 1,
-                        borderRadius: 6
-                    }
-                ]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { labels: { color: '#94a3b8' } }
+                        borderColor: '#3b82f6',
+                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
+                        borderWidth: 3,
+                        fill: true,
+                        tension: 0.4,
+                        pointBackgroundColor: '#60a5fa',
+                        pointHoverRadius: 7
+                    }]
                 },
-                scales: {
-                    x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                    y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
-                }
-            }
-        };
-    } else if (type === 'donut') {
-        chartConfig = {
-            type: 'doughnut',
-            data: {
-                labels: ['Base Pay', 'Tips', 'Cash Tips', 'Gas Spent', 'Taxes'],
-                datasets: [{
-                    data: [
-                        breakdown.basePay,
-                        breakdown.tips,
-                        breakdown.cashTips,
-                        breakdown.gas,
-                        breakdown.taxes
-                    ],
-                    backgroundColor: [
-                        '#3b82f6',
-                        '#10b981',
-                        '#f59e0b',
-                        '#f87171',
-                        '#8b5cf6'
-                    ],
-                    borderWidth: 2,
-                    borderColor: '#0f172a'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: {
-                        position: 'right',
-                        labels: { color: '#94a3b8', font: { size: 12 } }
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#94a3b8' } }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
                     }
                 }
-            }
-        };
-    }
+            };
+        } else if (type === 'bar') {
+            chartConfig = {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Total Pay ($)',
+                            data: earnings,
+                            backgroundColor: 'rgba(16, 185, 129, 0.75)',
+                            borderColor: '#10b981',
+                            borderWidth: 1,
+                            borderRadius: 6
+                        },
+                        {
+                            label: 'Gas Spent ($)',
+                            data: gas,
+                            backgroundColor: 'rgba(248, 113, 113, 0.75)',
+                            borderColor: '#f87171',
+                            borderWidth: 1,
+                            borderRadius: 6
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#94a3b8' } }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
+                        y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                    }
+                }
+            };
+        } else if (type === 'donut') {
+            chartConfig = {
+                type: 'doughnut',
+                data: {
+                    labels: ['Base Pay', 'Tips', 'Cash Tips', 'Gas Spent', 'Taxes'],
+                    datasets: [{
+                        data: [
+                            breakdown.basePay,
+                            breakdown.tips,
+                            breakdown.cashTips,
+                            breakdown.gas,
+                            breakdown.taxes
+                        ],
+                        backgroundColor: [
+                            '#3b82f6',
+                            '#10b981',
+                            '#f59e0b',
+                            '#f87171',
+                            '#8b5cf6'
+                        ],
+                        borderWidth: 2,
+                        borderColor: '#0f172a'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { color: '#94a3b8', font: { size: 12 } }
+                        }
+                    }
+                }
+            };
+        }
 
-    earningsChartInstance = new Chart(ctx, chartConfig);
+        earningsChartInstance = new Chart(ctx, chartConfig);
+    } catch (chartErr) {
+        console.error("Error building Chart:", chartErr);
+    }
 }

@@ -1,5 +1,11 @@
 # Changelog
 
+## [2.0.2] - 2026-08-10
+### Fixed
+- Added dual fetch fallback (direct `fetch` with fallback to `Papa.parse(..., { download: true })`) to overcome browser CORS or network fetch blocks.
+- Protected summary cards DOM structure when handling fetch errors using a non-destructive banner.
+- Wrapped Chart.js renderer in safety checks to prevent ad-blockers or blocked CDN scripts from halting application execution.
+
 ## [2.0.1] - 2026-08-10
 ### Fixed
 - Resolved undefined property crash in `processData` by declaring `totalBasePay`, `totalTips`, `totalCashTips`, `totalTaxes` and attaching `gasNum` and `hourlyRateNum` to monthly objects.
