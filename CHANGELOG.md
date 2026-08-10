@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.3.0] - 2026-08-10
+### Fixed
+- Restored full export CSV endpoint to ensure 100% accurate column data across all rows (including Lifetime Deliveries: 742, Customer Rating: 5, Overall Rating: 99%, 5 Stars: 103, and all 5 Feedback badges).
+- Bumped local storage cache key to `dasher_tracker_data_v3` to flush old truncated cache.
+
 ## [2.2.0] - 2026-08-10
 ### Fixed
 - Switched CSV source URL to Google Visualization API (`gviz/tq?tqx=out:csv`). This endpoint provides direct CORS-allowed access with 0 HTTP 307 redirects or login challenges, completely eliminating browser fetch blocks and red error boxes.

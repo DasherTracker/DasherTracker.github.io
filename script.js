@@ -1,6 +1,6 @@
-const CSV_URL = 'https://docs.google.com/spreadsheets/d/1Fe7D2-0TQFHLdwy3mfTwyr-EXODkOdeIFhYxZOyB2MQ/gviz/tq?tqx=out:csv&gid=1708220782';
-const CACHE_KEY = 'dasher_tracker_data_v1';
-const CACHE_TIME_KEY = 'dasher_tracker_time_v1';
+const CSV_URL = 'https://docs.google.com/spreadsheets/d/1Fe7D2-0TQFHLdwy3mfTwyr-EXODkOdeIFhYxZOyB2MQ/export?format=csv&gid=1708220782';
+const CACHE_KEY = 'dasher_tracker_data_v3';
+const CACHE_TIME_KEY = 'dasher_tracker_time_v3';
 
 document.addEventListener('DOMContentLoaded', () => {
     // 1. Immediately load cached data if available (0ms instant render)
@@ -53,15 +53,8 @@ async function fetchDashboardData() {
     if (existingError) existingError.remove();
 
     try {
-        const response = await fetch(CSV_URL);
-        const csvText = await response.text();
-        
-        // Rate-Limit check: If Google returned HTML instead of CSV
-        if (csvText.trim().toLowerCase().startsWith('<!doctype') || csvText.trim().toLowerCase().startsWith('<html')) {
-            throw new Error("Google Sheets rate limited request.");
-        }
-
-        Papa.parse(csvText, {
+        Papa.parse(CSV_URL, {
+            download: true,
             header: false,
             skipEmptyLines: false,
             complete: function(results) {
@@ -78,35 +71,13 @@ async function fetchDashboardData() {
                 }
             },
             error: function(err) {
-                console.error("PapaParse error:", err);
-                handleFetchFailure("Failed to parse sheet data.");
+                console.error("PapaParse download error:", err);
+                handleFetchFailure("Unable to fetch CSV data.");
             }
         });
     } catch (error) {
-        console.warn("Direct fetch failed or rate limited:", error);
-        
-        Papa.parse(CSV_URL, {
-            download: true,
-            header: false,
-            skipEmptyLines: false,
-            complete: function(results) {
-                if (results.data && results.data.length > 0) {
-                    try {
-                        localStorage.setItem(CACHE_KEY, JSON.stringify(results.data));
-                        localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
-                    } catch (e) {}
-                    
-                    processData(results.data);
-                    updateLastUpdatedTag(Date.now());
-                } else {
-                    handleFetchFailure("Unable to fetch CSV data.");
-                }
-            },
-            error: function(err) {
-                console.error("PapaParse download error:", err);
-                handleFetchFailure("Google Sheets rate limit active. Showing cached data.");
-            }
-        });
+        console.warn("Fetch error:", error);
+        handleFetchFailure("Google Sheets rate limit active. Showing cached data.");
     } finally {
         if (refreshBtn) refreshBtn.classList.remove('loading');
     }
@@ -167,7 +138,7 @@ function processData(data) {
                 continue;
             }
             
-            // 2. Ratings Headers & Values
+            // 2. Ratings Headers & Values (detect 'lifetime' anywhere in row)
             const isRatingsHeaderRow = row.some(c => {
                 const s = (c || '').trim().toLowerCase();
                 return s.includes('lifetime') || s.includes('customer rating') || s.includes('overall dasher rating') || s.includes('5 stars');
@@ -183,7 +154,7 @@ function processData(data) {
                 continue;
             }
             
-            // 3. Customer Feedback Headers & Values
+            // 3. Customer Feedback Headers & Values (detect 'communication' anywhere in row)
             const isFeedbackHeaderRow = row.some(c => {
                 const s = (c || '').trim().toLowerCase();
                 return s.includes('communication') || s.includes('order handling') || s.includes('friendliness');
