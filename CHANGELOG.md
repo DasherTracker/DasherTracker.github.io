@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.5.0] - 2026-08-10
+### Added
+- Added visible version number badge (`v2.5.0`) in footer layout.
+- Strictly enforced commit message title format (`vX.X.X : Description of work done`).
+
 ## [2.4.1] - 2026-08-10
 ### Fixed
 - Updated CSV source URL to the official Published Google Sheet CSV endpoint (`2PACX-1v.../pub?gid=1708220782&single=true&output=csv`).
