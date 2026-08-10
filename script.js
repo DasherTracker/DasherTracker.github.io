@@ -35,128 +35,161 @@ function renderError() {
 }
 
 function processData(data) {
-    const monthlyRows = [];
-    let totalRow = null;
-    let ratingsHeaders = null;
-    let ratingsValues = null;
-    let feedbackHeaders = null;
-    let feedbackValues = null;
-    
-    let totalEarnings = 0;
-    let totalDeliveries = 0;
-    let totalMonthsWorked = 0;
-    let totalGas = 0;
-    
-    const chartLabels = [];
-    const chartEarnings = [];
+    try {
+        const monthlyRows = [];
+        let totalRow = null;
+        let ratingsHeaders = null;
+        let ratingsValues = null;
+        let feedbackHeaders = null;
+        let feedbackValues = null;
+        
+        let totalEarnings = 0;
+        let totalDeliveries = 0;
+        let totalMonthsWorked = 0;
+        let totalGas = 0;
+        let totalBasePay = 0;
+        let totalTips = 0;
+        let totalCashTips = 0;
+        let totalTaxes = 0;
+        
+        const chartLabels = [];
+        const chartEarnings = [];
+        const chartGas = [];
 
-    for (let i = 0; i < data.length; i++) {
-        const row = data[i];
-        if (!row || row.length < 1) continue;
-        
-        const col0 = (row[0] || '').trim();
-        
-        // 1. Total Row
-        if (col0.toLowerCase() === 'total') {
-            totalRow = row;
-            continue;
-        }
-        
-        // 2. Ratings Headers & Values
-        const isRatingsHeaderRow = row.some(c => {
-            const s = (c || '').trim().toLowerCase();
-            return s.includes('lifetime') || s.includes('customer rating') || s.includes('overall dasher rating') || s.includes('5 stars');
-        });
-        if (isRatingsHeaderRow && !ratingsHeaders) {
-            ratingsHeaders = row.map(c => (c || '').trim());
-            for (let j = i + 1; j < data.length; j++) {
-                if (data[j] && data[j].some(c => /^\d+/.test((c || '').trim()))) {
-                    ratingsValues = data[j].map(c => (c || '').trim());
-                    break;
-                }
-            }
-            continue;
-        }
-        
-        // 3. Customer Feedback Headers & Values
-        const isFeedbackHeaderRow = row.some(c => {
-            const s = (c || '').trim().toLowerCase();
-            return s.includes('communication') || s.includes('order handling') || s.includes('friendliness');
-        });
-        if (isFeedbackHeaderRow && !feedbackHeaders) {
-            feedbackHeaders = row.map(c => (c || '').trim());
-            for (let j = i + 1; j < data.length; j++) {
-                if (data[j] && data[j].some(c => /^\d+/.test((c || '').trim()))) {
-                    feedbackValues = data[j].map(c => (c || '').trim());
-                    break;
-                }
-            }
-            continue;
-        }
-        
-        // 4. Monthly Rows
-        const validMonths = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
-        if (validMonths.includes(col0.toLowerCase())) {
-            const deliveries = parseInt((row[4] || '0').replace(/[^0-9]/g, "")) || 0;
-            const totalPayStr = row[9] || '$0';
-            const totalPayNum = parseFloat(totalPayStr.replace(/[^0-9.-]+/g, "")) || 0;
-            const gasStr = row[13] || '$0.00';
-            const gasNum = parseFloat(gasStr.replace(/[^0-9.-]+/g, "")) || 0;
+        for (let i = 0; i < data.length; i++) {
+            const row = data[i];
+            if (!row || row.length < 1) continue;
             
-            totalEarnings += totalPayNum;
-            totalDeliveries += deliveries;
-            totalGas += gasNum;
+            const col0 = (row[0] || '').trim();
             
-            if (totalPayNum > 0 || deliveries > 0) {
-                totalMonthsWorked++;
+            // 1. Total Row
+            if (col0.toLowerCase() === 'total') {
+                totalRow = row;
+                continue;
             }
-
-            monthlyRows.push({
-                month: col0,
-                hours: row[1] || '0',
-                activeHours: row[2] || '0',
-                miles: row[3] || '0.00',
-                deliveries,
-                basePay: row[5] || '$0.00',
-                tips: row[6] || '$0.00',
-                cashTips: row[7] || '$0.00',
-                taxes: row[8] || '$0.00',
-                gas: gasStr,
-                totalPay: totalPayStr,
-                hourlyRate: row[10] || '$0.00',
-                noTipping: row[11] || '0',
-                pctNoTipping: row[12] || '0.00%',
-                totalPayNum
+            
+            // 2. Ratings Headers & Values
+            const isRatingsHeaderRow = row.some(c => {
+                const s = (c || '').trim().toLowerCase();
+                return s.includes('lifetime') || s.includes('customer rating') || s.includes('overall dasher rating') || s.includes('5 stars');
             });
+            if (isRatingsHeaderRow && !ratingsHeaders) {
+                ratingsHeaders = row.map(c => (c || '').trim());
+                for (let j = i + 1; j < data.length; j++) {
+                    if (data[j] && data[j].some(c => /^\d+/.test((c || '').trim()))) {
+                        ratingsValues = data[j].map(c => (c || '').trim());
+                        break;
+                    }
+                }
+                continue;
+            }
+            
+            // 3. Customer Feedback Headers & Values
+            const isFeedbackHeaderRow = row.some(c => {
+                const s = (c || '').trim().toLowerCase();
+                return s.includes('communication') || s.includes('order handling') || s.includes('friendliness');
+            });
+            if (isFeedbackHeaderRow && !feedbackHeaders) {
+                feedbackHeaders = row.map(c => (c || '').trim());
+                for (let j = i + 1; j < data.length; j++) {
+                    if (data[j] && data[j].some(c => /^\d+/.test((c || '').trim()))) {
+                        feedbackValues = data[j].map(c => (c || '').trim());
+                        break;
+                    }
+                }
+                continue;
+            }
+            
+            // 4. Monthly Rows
+            const validMonths = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
+            if (validMonths.includes(col0.toLowerCase())) {
+                const deliveries = parseInt((row[4] || '0').replace(/[^0-9]/g, "")) || 0;
+                
+                const basePayStr = row[5] || '$0';
+                const basePayNum = parseFloat(basePayStr.replace(/[^0-9.-]+/g, "")) || 0;
+                
+                const tipsStr = row[6] || '$0';
+                const tipsNum = parseFloat(tipsStr.replace(/[^0-9.-]+/g, "")) || 0;
+                
+                const cashTipsStr = row[7] || '$0';
+                const cashTipsNum = parseFloat(cashTipsStr.replace(/[^0-9.-]+/g, "")) || 0;
+                
+                const taxesStr = row[8] || '$0';
+                const taxesNum = parseFloat(taxesStr.replace(/[^0-9.-]+/g, "")) || 0;
+
+                const totalPayStr = row[9] || '$0';
+                const totalPayNum = parseFloat(totalPayStr.replace(/[^0-9.-]+/g, "")) || 0;
+                
+                const hourlyRateStr = row[10] || '$0.00';
+                const hourlyRateNum = parseFloat(hourlyRateStr.replace(/[^0-9.-]+/g, "")) || 0;
+                
+                const gasStr = row[13] || '$0.00';
+                const gasNum = parseFloat(gasStr.replace(/[^0-9.-]+/g, "")) || 0;
+                
+                totalEarnings += totalPayNum;
+                totalDeliveries += deliveries;
+                totalGas += gasNum;
+                totalBasePay += basePayNum;
+                totalTips += tipsNum;
+                totalCashTips += cashTipsNum;
+                totalTaxes += taxesNum;
+                
+                if (totalPayNum > 0 || deliveries > 0) {
+                    totalMonthsWorked++;
+                }
+
+                monthlyRows.push({
+                    month: col0,
+                    hours: row[1] || '0',
+                    activeHours: row[2] || '0',
+                    miles: row[3] || '0.00',
+                    deliveries,
+                    basePay: basePayStr,
+                    tips: tipsStr,
+                    cashTips: cashTipsStr,
+                    taxes: taxesStr,
+                    gas: gasStr,
+                    totalPay: totalPayStr,
+                    hourlyRate: hourlyRateStr,
+                    noTipping: row[11] || '0',
+                    pctNoTipping: row[12] || '0.00%',
+                    totalPayNum,
+                    gasNum,
+                    hourlyRateNum
+                });
+            }
         }
+
+        // Chart datasets
+        monthlyRows.forEach(r => {
+            chartLabels.push(r.month);
+            chartEarnings.push(r.totalPayNum);
+            chartGas.push(r.gasNum);
+        });
+
+        cachedChartData = {
+            labels: chartLabels,
+            earnings: chartEarnings,
+            gas: chartGas,
+            breakdown: {
+                basePay: totalBasePay,
+                tips: totalTips,
+                cashTips: totalCashTips,
+                gas: totalGas,
+                taxes: totalTaxes
+            }
+        };
+
+        renderSummary(totalEarnings, totalDeliveries, totalMonthsWorked, totalGas);
+        renderTable(monthlyRows);
+        renderTotalRow(totalRow);
+        renderRatings(ratingsHeaders, ratingsValues);
+        renderFeedback(feedbackHeaders, feedbackValues);
+        renderChart(currentChartType);
+    } catch (err) {
+        console.error("Error in processData:", err);
+        renderError();
     }
-
-    // Chart datasets
-    monthlyRows.forEach(r => {
-        chartLabels.push(r.month);
-        chartEarnings.push(r.totalPayNum);
-        chartGas.push(r.gasNum);
-    });
-
-    cachedChartData = {
-        labels: chartLabels,
-        earnings: chartEarnings,
-        gas: chartGas,
-        breakdown: {
-            basePay: totalBasePay,
-            tips: totalTips,
-            cashTips: totalCashTips,
-            gas: totalGas,
-            taxes: totalTaxes
-        }
-    };
-
-    renderSummary(totalEarnings, totalDeliveries, totalMonthsWorked, totalGas);
-    renderTable(monthlyRows);
-    renderTotalRow(totalRow);
-    renderRatings(ratingsHeaders, ratingsValues);
-    renderFeedback(feedbackHeaders, feedbackValues);
-    renderChart(currentChartType);
 }
 
 function animateValue(elementId, targetValue, isCurrency = false, prefix = '', suffix = '', duration = 1000) {

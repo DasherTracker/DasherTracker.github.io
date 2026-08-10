@@ -1,5 +1,10 @@
 # Changelog
 
+## [2.0.1] - 2026-08-10
+### Fixed
+- Resolved undefined property crash in `processData` by declaring `totalBasePay`, `totalTips`, `totalCashTips`, `totalTaxes` and attaching `gasNum` and `hourlyRateNum` to monthly objects.
+- Wrapped `processData` execution in a try/catch block to log errors and render a user-friendly error state instead of hanging indefinitely.
+
 ## [2.0.0] - 2026-08-10
 ### Added
 - Net Profit Widget (`Total Pay - Gas`) & Gas Efficiency ROI metric (`$ Earned per $1 Gas Spent`).
