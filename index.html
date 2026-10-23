@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Dasher Tracker — Real-Time Delivery Analytics</title>
-    <meta name="description" content="Modern real-time delivery earnings, metrics, and analytics intelligence dashboard for Dashers.">
+    <meta name="description" content="Modern real-time delivery earnings, metrics, tipping intelligence, and analytics dashboard for Dashers.">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
     <!-- Google Fonts: Plus Jakarta Sans, Outfit, JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=3.1.0">
+    <link rel="stylesheet" href="styles.css?v=3.2.0">
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Chart.js for data visualization -->
@@ -40,8 +40,8 @@
             </div>
         </header>
 
-        <!-- TOP BENTO GRID: EXECUTIVE KPIS -->
-        <section class="bento-grid" id="bentoGrid">
+        <!-- 1. FINANCIAL EXECUTIVE BENTO ROW -->
+        <section class="financial-bento-grid" id="financialBentoGrid">
             <!-- Hero Card: Net Earnings -->
             <div class="bento-card hero-kpi">
                 <div class="card-top-row">
@@ -68,19 +68,6 @@
                 </div>
             </div>
 
-            <!-- Total Deliveries Card -->
-            <div class="bento-card">
-                <div class="card-top-row">
-                    <span class="card-title">Total Deliveries</span>
-                    <div class="card-icon-badge">🛍️</div>
-                </div>
-                <div class="card-value-display" id="cardValDeliveries">0</div>
-                <div class="card-subtext">
-                    <span class="profit-chip positive" id="cardAvgPerOrderChip">$0.00 / order</span>
-                    <span>Avg Payout</span>
-                </div>
-            </div>
-
             <!-- Mileage & Gas Efficiency Card -->
             <div class="bento-card">
                 <div class="card-top-row">
@@ -95,7 +82,75 @@
             </div>
         </section>
 
-        <!-- SECONDARY KPI STRIP -->
+        <!-- 2. DEDICATED TIPPING & ORDER INTELLIGENCE SECTION -->
+        <section class="glass-panel tipping-intelligence-panel">
+            <div class="panel-header-row">
+                <div class="panel-title-group">
+                    <h2>Tipping & Order Intelligence</h2>
+                    <span class="panel-pill-badge" id="tippingSummaryBadge">Customer Generosity Breakdown</span>
+                </div>
+            </div>
+
+            <!-- Tipping KPI Cards -->
+            <div class="tipping-cards-grid">
+                <!-- Total Deliveries Card -->
+                <div class="tipping-card">
+                    <div class="card-top-row">
+                        <span class="card-title">Total Deliveries</span>
+                        <div class="card-icon-badge">🛍️</div>
+                    </div>
+                    <div class="card-value-display" id="cardValDeliveries">0</div>
+                    <div class="card-subtext">
+                        <span class="profit-chip neutral" id="cardAvgPerOrderChip">$0.00 / order</span>
+                        <span>Avg Gross Payout</span>
+                    </div>
+                </div>
+
+                <!-- Tipped Orders Card (Emerald) -->
+                <div class="tipping-card highlight-tipped">
+                    <div class="card-top-row">
+                        <span class="card-title">Tipped Orders</span>
+                        <div class="card-icon-badge emerald">🎁</div>
+                    </div>
+                    <div class="card-value-display emerald" id="cardValTippedOrders">0</div>
+                    <div class="card-subtext">
+                        <span class="profit-chip positive" id="cardTippedRateChip">--% Generosity</span>
+                        <span id="cardAvgTipAmountChip">Avg $0.00 / tip</span>
+                    </div>
+                </div>
+
+                <!-- No-Tip Orders Card (Rose Alert) -->
+                <div class="tipping-card highlight-notipped">
+                    <div class="card-top-row">
+                        <span class="card-title">No-Tip Deliveries</span>
+                        <div class="card-icon-badge rose">🚫</div>
+                    </div>
+                    <div class="card-value-display rose" id="cardValNoTipOrders">0</div>
+                    <div class="card-subtext">
+                        <span class="profit-chip expense" id="cardNoTipRateChip">--% Stiff Rate</span>
+                        <span>Orders with $0 Tip</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Segmented Tipping Ratio Bar -->
+            <div class="tipping-ratio-container">
+                <div class="ratio-labels-row">
+                    <span class="ratio-label-tipped">
+                        <span class="ratio-dot emerald"></span> Tipped Orders: <strong id="ratioTippedText">0 (0.0%)</strong>
+                    </span>
+                    <span class="ratio-label-notipped">
+                        <span class="ratio-dot rose"></span> No-Tip Orders: <strong id="ratioNoTipText">0 (0.0%)</strong>
+                    </span>
+                </div>
+                <div class="ratio-track-bar">
+                    <div class="ratio-segment tipped" id="ratioSegmentTipped" style="width: 50%;"></div>
+                    <div class="ratio-segment notipped" id="ratioSegmentNoTip" style="width: 50%;"></div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. SECONDARY FINANCIAL STRIP -->
         <section class="secondary-kpi-grid">
             <div class="mini-kpi-card">
                 <div class="mini-icon-circle emerald">💵</div>
@@ -114,7 +169,7 @@
             <div class="mini-kpi-card">
                 <div class="mini-icon-circle amber">🎁</div>
                 <div class="mini-kpi-info">
-                    <span class="mini-kpi-label">Tips (App + Cash)</span>
+                    <span class="mini-kpi-label">Customer Tips (App + Cash)</span>
                     <span class="mini-kpi-value" id="kpiTotalTips">$0.00</span>
                 </div>
             </div>
@@ -127,7 +182,7 @@
             </div>
         </section>
 
-        <!-- ANALYTICS VISUALIZER SECTION -->
+        <!-- 4. ANALYTICS VISUALIZER SECTION -->
         <section class="glass-panel">
             <div class="panel-header-row">
                 <div class="panel-title-group">
@@ -137,6 +192,7 @@
                 <div class="chart-toggle-group">
                     <button class="chart-btn active" id="chartBtnLine" onclick="switchChart('line')">📈 Earnings Trend</button>
                     <button class="chart-btn" id="chartBtnBar" onclick="switchChart('bar')">📊 Pay vs. Gas</button>
+                    <button class="chart-btn" id="chartBtnTipSplit" onclick="switchChart('tipSplit')">🎁 Tip vs. No-Tip</button>
                     <button class="chart-btn" id="chartBtnDonut" onclick="switchChart('donut')">🍩 Income Split</button>
                     <button class="chart-btn" id="chartBtnEfficiency" onclick="switchChart('efficiency')">⚡ $/Mile Efficiency</button>
                 </div>
@@ -146,7 +202,7 @@
             </div>
         </section>
 
-        <!-- PRESTIGE & RATINGS SHOWCASE -->
+        <!-- 5. PRESTIGE & RATINGS SHOWCASE -->
         <section class="prestige-bento-layout">
             <!-- Left: Status Tier Shield Card -->
             <div class="tier-status-card" id="prestigeTierCard">
@@ -188,7 +244,7 @@
             </div>
         </section>
 
-        <!-- MONTHLY DATA TABLE SECTION -->
+        <!-- 6. MONTHLY DATA TABLE SECTION -->
         <section class="glass-panel">
             <div class="panel-header-row">
                 <div class="panel-title-group">
@@ -228,10 +284,10 @@
 
         <!-- FOOTER -->
         <footer class="dashboard-footer">
-            <p>Dasher Tracker <span class="version-badge">v3.1.0</span> • Real-Time Delivery Intelligence Dashboard</p>
+            <p>Dasher Tracker <span class="version-badge">v3.2.0</span> • Real-Time Delivery Intelligence Dashboard</p>
         </footer>
     </main>
 
-    <script src="script.js?v=3.1.0"></script>
+    <script src="script.js?v=3.2.0"></script>
 </body>
 </html>

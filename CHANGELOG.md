@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.2.0] - 2026-10-23
+### Added
+- Added dedicated Tipping and Order Intelligence Bento section.
+- Added No-Tip Orders alert card and stiff rate badge.
+- Added glowing segmented Tipped vs No-Tip ratio bar.
+- Added Tip vs No-Tip monthly delivery chart toggle.
+
 ## [3.1.0] - 2026-10-23
 ### Added
 - Added real-time visitor telemetry counter in header status strip.

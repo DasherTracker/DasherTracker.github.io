@@ -1,10 +1,10 @@
 /* ==========================================================================
-   DASHER TRACKER — MODERN SCRIPT ENGINE (v3.1.0)
+   DASHER TRACKER — MODERN SCRIPT ENGINE (v3.2.0)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
-const CACHE_KEY = 'dasher_tracker_data_v6';
-const CACHE_TIME_KEY = 'dasher_tracker_time_v6';
+const CACHE_KEY = 'dasher_tracker_data_v7';
+const CACHE_TIME_KEY = 'dasher_tracker_time_v7';
 const VISITOR_API_URL = 'https://livecounters-8eaa8-default-rtdb.firebaseio.com/labData';
 
 let cachedChartData = null;
@@ -89,7 +89,6 @@ async function fetchDashboardData() {
     if (refreshBtn) refreshBtn.classList.add('loading');
     
     try {
-        // Cache buster parameter
         const fetchUrl = `${CSV_URL}&_cb=${Date.now()}`;
         Papa.parse(fetchUrl, {
             download: true,
@@ -137,7 +136,6 @@ function parseHoursToNumber(hourStr) {
     if (!hourStr) return 0;
     const clean = hourStr.replace(/^"|"$/g, '').trim();
     
-    // Check for HH:MM:SS format e.g. 546:12:00
     if (clean.includes(':')) {
         const parts = clean.split(':');
         const h = parseFloat(parts[0]) || 0;
@@ -145,7 +143,6 @@ function parseHoursToNumber(hourStr) {
         return h + (m / 60);
     }
     
-    // Check for 'X hrs Y mins'
     const hrMatch = clean.match(/(\d+)\s*hrs?/i);
     const minMatch = clean.match(/(\d+)\s*mins?/i);
     if (hrMatch || minMatch) {
@@ -175,12 +172,15 @@ function processData(data) {
         let totalTaxes = 0;
         let totalMiles = 0;
         let totalDashHoursNum = 0;
+        let totalNoTipping = 0;
         let activeMonthsCount = 0;
         
         const chartLabels = [];
         const chartEarnings = [];
         const chartGas = [];
         const chartEfficiency = [];
+        const chartTippedOrders = [];
+        const chartNoTipOrders = [];
 
         for (let i = 0; i < data.length; i++) {
             const row = data[i];
@@ -258,6 +258,9 @@ function processData(data) {
                 const gasStr = (row[13] || '$0.00').replace(/^"|"$/g, '').trim();
                 const gasNum = parseFloat(gasStr.replace(/[^0-9.-]+/g, "")) || 0;
                 
+                const noTipCount = parseInt((row[11] || '0').replace(/[^0-9]/g, '')) || 0;
+                const tippedCount = Math.max(0, deliveries - noTipCount);
+                
                 totalEarnings += totalPayNum;
                 totalDeliveries += deliveries;
                 totalGas += gasNum;
@@ -267,6 +270,7 @@ function processData(data) {
                 totalTaxes += taxesNum;
                 totalMiles += milesNum;
                 totalDashHoursNum += hoursNum;
+                totalNoTipping += noTipCount;
                 
                 if (totalPayNum > 0 || deliveries > 0) {
                     activeMonthsCount++;
@@ -275,6 +279,8 @@ function processData(data) {
                     chartGas.push(gasNum);
                     const perMile = milesNum > 0 ? (totalPayNum / milesNum) : 0;
                     chartEfficiency.push(parseFloat(perMile.toFixed(2)));
+                    chartTippedOrders.push(tippedCount);
+                    chartNoTipOrders.push(noTipCount);
                 }
 
                 monthlyRows.push({
@@ -295,18 +301,23 @@ function processData(data) {
                     totalPayNum,
                     gasNum,
                     hourlyRateNum,
-                    milesNum
+                    milesNum,
+                    noTipCount,
+                    tippedCount
                 });
             }
         }
 
-        // Parse total row overrides if available for total miles & hours
+        // Parse total row overrides if available for total miles, hours, and no tipping
         if (totalRow) {
             const rowMiles = (totalRow[3] || '').replace(/[^0-9.]/g, '');
             if (rowMiles) totalMiles = parseFloat(rowMiles) || totalMiles;
             
             const rowHours = totalRow[1] || '';
             if (rowHours) totalDashHoursNum = parseHoursToNumber(rowHours) || totalDashHoursNum;
+
+            const rowNoTip = (totalRow[11] || '').replace(/[^0-9]/g, '');
+            if (rowNoTip) totalNoTipping = parseInt(rowNoTip) || totalNoTipping;
         }
 
         // Fallbacks for ratings & feedback if header row not in gviz CSV export
@@ -340,6 +351,8 @@ function processData(data) {
             earnings: chartEarnings,
             gas: chartGas,
             efficiency: chartEfficiency,
+            tippedOrders: chartTippedOrders,
+            noTipOrders: chartNoTipOrders,
             breakdown: {
                 basePay: totalBasePay,
                 tips: totalTips,
@@ -349,8 +362,9 @@ function processData(data) {
             }
         };
 
-        // Render all executive UI sections
-        renderExecutiveBento(totalEarnings, totalGas, totalDeliveries, totalMiles, totalDashHoursNum);
+        // Render all UI sections
+        renderExecutiveBento(totalEarnings, totalGas, totalDashHoursNum);
+        renderTippingIntelligence(totalDeliveries, totalNoTipping, totalTips + totalCashTips, totalEarnings);
         renderSecondaryKpis(totalEarnings, totalBasePay, totalTips + totalCashTips, totalGas);
         renderChart(currentChartType);
         renderRatings(ratingsHeaders, ratingsValues);
@@ -404,11 +418,10 @@ function animateValue(elementId, targetValue, isCurrency = false, prefix = '', s
 /* ==========================================================================
    BENTO KPI RENDERERS
    ========================================================================== */
-function renderExecutiveBento(totalEarnings, totalGas, totalDeliveries, totalMiles, totalHours) {
+function renderExecutiveBento(totalEarnings, totalGas, totalHours) {
     const netProfit = totalEarnings - totalGas;
     const profitMargin = totalEarnings > 0 ? ((netProfit / totalEarnings) * 100).toFixed(1) : '0.0';
     const hourlyRate = totalHours > 0 ? (totalEarnings / totalHours) : 0;
-    const avgPerDelivery = totalDeliveries > 0 ? (totalEarnings / totalDeliveries) : 0;
     const gasRoi = totalGas > 0 ? (totalEarnings / totalGas) : 0;
 
     // 1. Hero Net Profit
@@ -421,16 +434,51 @@ function renderExecutiveBento(totalEarnings, totalGas, totalDeliveries, totalMil
     const hoursChip = document.getElementById('cardTotalHoursChip');
     if (hoursChip) hoursChip.textContent = `${Math.round(totalHours)} Dash Hrs`;
 
-    // 3. Deliveries
-    animateValue('cardValDeliveries', totalDeliveries, false);
-    const avgOrderChip = document.getElementById('cardAvgPerOrderChip');
-    if (avgOrderChip) avgOrderChip.textContent = `$${avgPerDelivery.toFixed(2)} / order`;
-
-    // 4. Gas ROI Efficiency
+    // 3. Gas ROI Efficiency
     const roiObj = document.getElementById('cardValGasRoi');
     if (roiObj) roiObj.textContent = `$${gasRoi.toFixed(2)}`;
-    const milesChip = document.getElementById('cardTotalMilesChip');
-    if (milesChip) milesChip.textContent = `${Math.round(totalMiles).toLocaleString()} Miles Tracked`;
+}
+
+/* ==========================================================================
+   TIPPING & ORDER INTELLIGENCE RENDERER
+   ========================================================================== */
+function renderTippingIntelligence(totalDeliveries, totalNoTipping, totalTips, totalEarnings) {
+    const totalNoTipCount = totalNoTipping;
+    const totalTippedCount = Math.max(0, totalDeliveries - totalNoTipCount);
+    const tippedPct = totalDeliveries > 0 ? ((totalTippedCount / totalDeliveries) * 100) : 0;
+    const noTipPct = totalDeliveries > 0 ? ((totalNoTipCount / totalDeliveries) * 100) : 0;
+    const avgTipPerOrder = totalTippedCount > 0 ? (totalTips / totalTippedCount) : 0;
+    const avgGrossPayout = totalDeliveries > 0 ? (totalEarnings / totalDeliveries) : 0;
+
+    // Animate Deliveries & Tip Counts
+    animateValue('cardValDeliveries', totalDeliveries, false);
+    animateValue('cardValTippedOrders', totalTippedCount, false);
+    animateValue('cardValNoTipOrders', totalNoTipCount, false);
+
+    // Update Chips & Context
+    const avgGrossChip = document.getElementById('cardAvgPerOrderChip');
+    if (avgGrossChip) avgGrossChip.textContent = `$${avgGrossPayout.toFixed(2)} / order`;
+
+    const tippedRateChip = document.getElementById('cardTippedRateChip');
+    if (tippedRateChip) tippedRateChip.textContent = `⚡ ${tippedPct.toFixed(1)}% Generosity`;
+
+    const avgTipAmountChip = document.getElementById('cardAvgTipAmountChip');
+    if (avgTipAmountChip) avgTipAmountChip.textContent = `Avg $${avgTipPerOrder.toFixed(2)} / tip`;
+
+    const noTipRateChip = document.getElementById('cardNoTipRateChip');
+    if (noTipRateChip) noTipRateChip.textContent = `🚫 ${noTipPct.toFixed(1)}% Stiff Rate`;
+
+    // Update Segmented Ratio Bar
+    const segmentTipped = document.getElementById('ratioSegmentTipped');
+    const segmentNoTip = document.getElementById('ratioSegmentNoTip');
+    if (segmentTipped) segmentTipped.style.width = `${tippedPct.toFixed(1)}%`;
+    if (segmentNoTip) segmentNoTip.style.width = `${noTipPct.toFixed(1)}%`;
+
+    const ratioTippedText = document.getElementById('ratioTippedText');
+    if (ratioTippedText) ratioTippedText.textContent = `${totalTippedCount.toLocaleString()} (${tippedPct.toFixed(1)}%)`;
+
+    const ratioNoTipText = document.getElementById('ratioNoTipText');
+    if (ratioNoTipText) ratioNoTipText.textContent = `${totalNoTipCount.toLocaleString()} (${noTipPct.toFixed(1)}%)`;
 }
 
 function renderSecondaryKpis(gross, basePay, totalTips, gas) {
@@ -617,7 +665,7 @@ function renderTotalRow(row) {
 function switchChart(type) {
     currentChartType = type;
     
-    ['line', 'bar', 'donut', 'efficiency'].forEach(t => {
+    ['line', 'bar', 'tipSplit', 'donut', 'efficiency'].forEach(t => {
         const btn = document.getElementById('chartBtn' + t.charAt(0).toUpperCase() + t.slice(1));
         if (btn) {
             if (t === type) btn.classList.add('active');
@@ -629,6 +677,7 @@ function switchChart(type) {
     if (badge) {
         if (type === 'line') badge.textContent = 'Earnings Trend Over Time';
         else if (type === 'bar') badge.textContent = 'Monthly Pay vs. Gas Expenses';
+        else if (type === 'tipSplit') badge.textContent = 'Monthly Tipped vs. No-Tip Deliveries';
         else if (type === 'donut') badge.textContent = 'Revenue & Expense Distribution';
         else if (type === 'efficiency') badge.textContent = 'Earnings Generated Per Mile Driven';
     }
@@ -654,9 +703,8 @@ function renderChart(type = 'line') {
             earningsChartInstance.destroy();
         }
 
-        const { labels, earnings, gas, efficiency, breakdown } = cachedChartData;
+        const { labels, earnings, gas, efficiency, tippedOrders, noTipOrders, breakdown } = cachedChartData;
 
-        // Custom Crimson Gradient for Line Chart
         const crimsonGradient = ctx.createLinearGradient(0, 0, 0, 320);
         crimsonGradient.addColorStop(0, 'rgba(255, 48, 8, 0.45)');
         crimsonGradient.addColorStop(0.6, 'rgba(255, 48, 8, 0.12)');
@@ -761,6 +809,57 @@ function renderChart(type = 'line') {
                             ticks: { 
                                 color: '#94a3b8',
                                 callback: (v) => '$' + v.toLocaleString()
+                            }, 
+                            grid: { color: 'rgba(255,255,255,0.04)' } 
+                        }
+                    }
+                }
+            };
+        } else if (type === 'tipSplit') {
+            chartConfig = {
+                type: 'bar',
+                data: {
+                    labels,
+                    datasets: [
+                        {
+                            label: 'Tipped Orders',
+                            data: tippedOrders,
+                            backgroundColor: 'rgba(16, 185, 129, 0.85)',
+                            borderColor: '#10b981',
+                            borderWidth: 1,
+                            borderRadius: 8
+                        },
+                        {
+                            label: 'No-Tip Orders',
+                            data: noTipOrders,
+                            backgroundColor: 'rgba(244, 63, 94, 0.85)',
+                            borderColor: '#f43f5e',
+                            borderWidth: 1,
+                            borderRadius: 8
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { labels: { color: '#cbd5e1', font: { family: 'Plus Jakarta Sans', weight: '600' } } },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: (ctx) => ` ${ctx.dataset.label}: ${ctx.raw} orders`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                        y: { 
+                            ticks: { 
+                                color: '#94a3b8',
+                                stepSize: 20
                             }, 
                             grid: { color: 'rgba(255,255,255,0.04)' } 
                         }

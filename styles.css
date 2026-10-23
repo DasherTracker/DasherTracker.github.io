@@ -231,9 +231,10 @@ body {
 /* ==========================================================================
    BENTO GRID — EXECUTIVE KPI CARDS
    ========================================================================== */
+.financial-bento-grid,
 .bento-grid {
     display: grid;
-    grid-template-columns: 1.4fr 1fr 1fr 1.1fr;
+    grid-template-columns: 1.4fr 1fr 1fr;
     gap: 1.35rem;
     margin-bottom: 2rem;
 }
@@ -252,6 +253,133 @@ body {
     display: flex;
     flex-direction: column;
     justify-content: space-between;
+}
+
+/* ==========================================================================
+   TIPPING & ORDER INTELLIGENCE SECTION
+   ========================================================================== */
+.tipping-intelligence-panel {
+    border-color: rgba(16, 185, 129, 0.2);
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.35), 0 0 25px rgba(16, 185, 129, 0.05);
+}
+
+.tipping-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.tipping-card {
+    background: rgba(10, 15, 26, 0.65);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 1.3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.25s ease;
+}
+
+.tipping-card:hover {
+    background: rgba(20, 28, 48, 0.8);
+    transform: translateY(-2px);
+}
+
+.tipping-card.highlight-tipped {
+    border-color: rgba(16, 185, 129, 0.3);
+    background: linear-gradient(145deg, rgba(16, 185, 129, 0.08) 0%, rgba(10, 15, 26, 0.7) 100%);
+}
+
+.tipping-card.highlight-notipped {
+    border-color: rgba(244, 63, 94, 0.3);
+    background: linear-gradient(145deg, rgba(244, 63, 94, 0.08) 0%, rgba(10, 15, 26, 0.7) 100%);
+}
+
+.card-icon-badge.emerald {
+    background: rgba(16, 185, 129, 0.15);
+    border-color: rgba(16, 185, 129, 0.35);
+    color: var(--emerald-success);
+}
+
+.card-icon-badge.rose {
+    background: rgba(244, 63, 94, 0.15);
+    border-color: rgba(244, 63, 94, 0.35);
+    color: #fb7185;
+}
+
+.card-value-display.emerald {
+    color: #34d399;
+}
+
+.card-value-display.rose {
+    color: #fb7185;
+}
+
+/* Segmented Tipping Ratio Bar */
+.tipping-ratio-container {
+    background: rgba(10, 15, 26, 0.75);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 1.1rem 1.3rem;
+}
+
+.ratio-labels-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+}
+
+.ratio-labels-row strong {
+    color: #fff;
+    font-family: var(--font-heading);
+}
+
+.ratio-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 0.4rem;
+}
+
+.ratio-dot.emerald {
+    background: var(--emerald-success);
+    box-shadow: 0 0 8px var(--emerald-success);
+}
+
+.ratio-dot.rose {
+    background: #f43f5e;
+    box-shadow: 0 0 8px #f43f5e;
+}
+
+.ratio-track-bar {
+    height: 14px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+    overflow: hidden;
+    display: flex;
+    padding: 2px;
+    gap: 2px;
+}
+
+.ratio-segment {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.ratio-segment.tipped {
+    background: var(--emerald-gradient);
+    box-shadow: 0 0 10px rgba(16, 185, 129, 0.4);
+}
+
+.ratio-segment.notipped {
+    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    box-shadow: 0 0 10px rgba(244, 63, 94, 0.4);
 }
 
 .bento-card::before {
@@ -936,8 +1064,12 @@ tfoot td {
    RESPONSIVE BREAKPOINTS (Desktop, Tablet, Mobile)
    ========================================================================== */
 @media (max-width: 1100px) {
+    .financial-bento-grid,
     .bento-grid {
-        grid-template-columns: repeat(2, 1fr);
+        grid-template-columns: 1fr;
+    }
+    .tipping-cards-grid {
+        grid-template-columns: 1fr;
     }
     .secondary-kpi-grid {
         grid-template-columns: repeat(2, 1fr);
@@ -957,8 +1089,18 @@ tfoot td {
         align-items: flex-start;
         gap: 1.2rem;
     }
+    .financial-bento-grid,
     .bento-grid {
         grid-template-columns: 1fr;
+    }
+    .tipping-cards-grid {
+        grid-template-columns: 1fr;
+    }
+    .ratio-labels-row {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.4rem;
+        font-size: 0.82rem;
     }
     .card-value-display.hero-value {
         font-size: 2.2rem;
