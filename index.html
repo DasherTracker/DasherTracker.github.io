@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=3.3.0">
+    <link rel="stylesheet" href="styles.css?v=3.4.0">
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Chart.js for data visualization -->
@@ -234,7 +234,175 @@
             </div>
         </section>
 
-        <!-- 4. SECONDARY FINANCIAL STRIP -->
+        <!-- 4. ITEMIZED GEAR, SUPPLIES & VEHICLE UPKEEP LEDGER -->
+        <section class="ledger-panel" id="ledgerSection">
+            <div class="panel-header-row">
+                <div class="panel-title-group">
+                    <h2>Itemized Gear, Supplies & Vehicle Upkeep</h2>
+                    <span class="panel-pill-badge blue">Out-of-Pocket Ledger</span>
+                </div>
+                <div class="ledger-header-meta">
+                    <span class="ledger-tax-tag">🧾 100% Tax Deductible Gear & Maintenance</span>
+                </div>
+            </div>
+
+            <div class="ledger-cards-grid">
+                <!-- Card 1: Dasher Gear & Delivery Supplies -->
+                <div class="ledger-card">
+                    <div class="ledger-card-header">
+                        <div class="ledger-card-title-group">
+                            <span class="ledger-icon">🎒</span>
+                            <div>
+                                <h3>Dasher Gear & Delivery Supplies</h3>
+                                <p class="ledger-card-sub">Hot bags, catering packs & mobile dash equipment</p>
+                            </div>
+                        </div>
+                        <div class="ledger-subtotal-badge blue" id="gearSubtotalBadge">$194.96 Subtotal</div>
+                    </div>
+
+                    <div class="ledger-items-list" id="gearItemsList">
+                        <div class="ledger-item-row">
+                            <div class="ledger-item-left">
+                                <span class="ledger-item-icon">🛍️</span>
+                                <div class="ledger-item-info">
+                                    <span class="ledger-item-name">Commercial Insulated Catering Bag</span>
+                                    <span class="ledger-item-desc">Heavy duty thermal pack for large pizza & catering orders</span>
+                                </div>
+                            </div>
+                            <span class="ledger-item-cost">$45.00</span>
+                        </div>
+                        <div class="ledger-item-row">
+                            <div class="ledger-item-left">
+                                <span class="ledger-item-icon">🥤</span>
+                                <div class="ledger-item-info">
+                                    <span class="ledger-item-name">6-Cup Heavy Duty Drink Carrier Caddy</span>
+                                    <span class="ledger-item-desc">Spill-proof insulated multi-beverage organizer</span>
+                                </div>
+                            </div>
+                            <span class="ledger-item-cost">$24.99</span>
+                        </div>
+                        <div class="ledger-item-row">
+                            <div class="ledger-item-left">
+                                <span class="ledger-item-icon">📱</span>
+                                <div class="ledger-item-info">
+                                    <span class="ledger-item-name">MagSafe Wireless Auto-Clamping Phone Mount</span>
+                                    <span class="ledger-item-desc">Fast 15W Qi wireless charging cockpit cradle</span>
+                                </div>
+                            </div>
+                            <span class="ledger-item-cost">$29.99</span>
+                        </div>
+                        <div class="ledger-item-row">
+                            <div class="ledger-item-left">
+                                <span class="ledger-item-icon">📹</span>
+                                <div class="ledger-item-info">
+                                    <span class="ledger-item-name">Dual Dash Cam (Front 4K + Cabin 1080p)</span>
+                                    <span class="ledger-item-desc">Dispute protection, night vision & parking guard</span>
+                                </div>
+                            </div>
+                            <span class="ledger-item-cost">$79.99</span>
+                        </div>
+                        <div class="ledger-item-row">
+                            <div class="ledger-item-left">
+                                <span class="ledger-item-icon">🔌</span>
+                                <div class="ledger-item-info">
+                                    <span class="ledger-item-name">Braided Fast Charge Cables & 12V Car Hub</span>
+                                    <span class="ledger-item-desc">USB-C PD high-durability charging bundle</span>
+                                </div>
+                            </div>
+                            <span class="ledger-item-cost">$14.99</span>
+                        </div>
+                    </div>
+
+                    <div class="ledger-card-footer">
+                        <span class="tax-shield-note">🛡️ 100% Deductible as Schedule C Business Supplies</span>
+                    </div>
+                </div>
+
+                <!-- Card 2: Vehicle Maintenance & Upkeep -->
+                <div class="ledger-card">
+                    <div class="ledger-card-header">
+                        <div class="ledger-card-title-group">
+                            <span class="ledger-icon">🛞</span>
+                            <div>
+                                <h3>Vehicle Maintenance & Upkeep</h3>
+                                <p class="ledger-card-sub">Actual operational repairs & wear-and-tear servicing</p>
+                            </div>
+                        </div>
+                        <div class="ledger-subtotal-badge amber" id="maintSubtotalBadge">$740.00 Subtotal</div>
+                    </div>
+
+                    <div class="ledger-items-list" id="maintItemsList">
+                        <div class="ledger-item-row">
+                            <div class="ledger-item-left">
+                                <span class="ledger-item-icon">🛞</span>
+                                <div class="ledger-item-info">
+                                    <span class="ledger-item-name">All-Season Delivery Tires (Pair + Balance)</span>
+                                    <span class="ledger-item-desc">High-mileage tread life & wet weather traction</span>
+                                </div>
+                            </div>
+                            <span class="ledger-item-cost">$480.00</span>
+                        </div>
+                        <div class="ledger-item-row">
+                            <div class="ledger-item-left">
+                                <span class="ledger-item-icon">🛢️</span>
+                                <div class="ledger-item-info">
+                                    <span class="ledger-item-name">Full Synthetic Oil Change & Filter</span>
+                                    <span class="ledger-item-desc">Mobil 1 0W-20 & OEM multipoint vehicle safety inspection</span>
+                                </div>
+                            </div>
+                            <span class="ledger-item-cost">$65.00</span>
+                        </div>
+                        <div class="ledger-item-row">
+                            <div class="ledger-item-left">
+                                <span class="ledger-item-icon">🛑</span>
+                                <div class="ledger-item-info">
+                                    <span class="ledger-item-name">Ceramic Brake Pads & Rotor Resurfacing</span>
+                                    <span class="ledger-item-desc">Front brake pad replacement for stop-and-go city routes</span>
+                                </div>
+                            </div>
+                            <span class="ledger-item-cost">$160.00</span>
+                        </div>
+                        <div class="ledger-item-row">
+                            <div class="ledger-item-left">
+                                <span class="ledger-item-icon">🌧️</span>
+                                <div class="ledger-item-info">
+                                    <span class="ledger-item-name">Silicone Heavy Weather Wiper Blades</span>
+                                    <span class="ledger-item-desc">All-weather streak-free beam wiper blade pair</span>
+                                </div>
+                            </div>
+                            <span class="ledger-item-cost">$35.00</span>
+                        </div>
+                    </div>
+
+                    <div class="ledger-card-footer">
+                        <span class="tax-shield-note">🔧 Tracked for Actual Expense vs. Mileage Comparison</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Ledger Grand Summary Strip -->
+            <div class="ledger-summary-strip">
+                <div class="summary-stat-box">
+                    <span class="summary-stat-label">Total Gear & Upkeep Out-of-Pocket</span>
+                    <span class="summary-stat-value amber" id="ledgerTotalUpkeep">$934.96</span>
+                    <span class="summary-stat-sub">Gear ($194.96) + Maintenance ($740.00)</span>
+                </div>
+                <div class="summary-stat-divider"></div>
+                <div class="summary-stat-box">
+                    <span class="summary-stat-label">Total Gas Spent</span>
+                    <span class="summary-stat-value rose" id="ledgerTotalGas">$0.00</span>
+                    <span class="summary-stat-sub">Fuel Expenses Tracked</span>
+                </div>
+                <div class="summary-stat-divider"></div>
+                <div class="summary-stat-box highlight">
+                    <span class="summary-stat-label">True Net Take-Home Pay (After Gas & Upkeep)</span>
+                    <span class="summary-stat-value emerald" id="ledgerTrueNetProfit">$0.00</span>
+                    <span class="summary-stat-sub" id="ledgerNetMarginSub">Calculating net margin...</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- 5. SECONDARY FINANCIAL STRIP -->
         <section class="secondary-kpi-grid">
             <div class="mini-kpi-card">
                 <div class="mini-icon-circle emerald">💵</div>
@@ -369,10 +537,10 @@
 
         <!-- FOOTER -->
         <footer class="dashboard-footer">
-            <p>Dasher Tracker <span class="version-badge">v3.3.0</span> • Real-Time Delivery Intelligence Dashboard</p>
+            <p>Dasher Tracker <span class="version-badge">v3.4.0</span> • Real-Time Delivery Intelligence Dashboard</p>
         </footer>
     </main>
 
-    <script src="script.js?v=3.3.0"></script>
+    <script src="script.js?v=3.4.0"></script>
 </body>
 </html>

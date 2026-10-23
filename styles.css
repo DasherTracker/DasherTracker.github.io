@@ -543,6 +543,272 @@ body {
     font-weight: 600;
 }
 
+/* ==========================================================================
+   ITEMIZED GEAR, SUPPLIES & VEHICLE UPKEEP LEDGER
+   ========================================================================== */
+.ledger-panel {
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(16px);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    border-radius: var(--radius-lg);
+    padding: 1.8rem;
+    margin-bottom: 2.2rem;
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.35), 0 0 25px rgba(56, 189, 248, 0.06);
+    position: relative;
+    overflow: hidden;
+}
+
+.panel-pill-badge.blue {
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.35);
+    color: #38bdf8;
+}
+
+.ledger-header-meta {
+    display: flex;
+    align-items: center;
+}
+
+.ledger-tax-tag {
+    font-size: 0.8rem;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid rgba(255, 255, 255, 0.08);
+    border-radius: 999px;
+    padding: 0.35rem 0.85rem;
+    letter-spacing: 0.02em;
+}
+
+.ledger-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.ledger-card {
+    background: rgba(10, 15, 26, 0.65);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 1.4rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.25s ease;
+}
+
+.ledger-card:hover {
+    background: rgba(20, 28, 48, 0.8);
+    border-color: rgba(56, 189, 248, 0.3);
+    transform: translateY(-2px);
+}
+
+.ledger-card-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    margin-bottom: 1.2rem;
+    gap: 1rem;
+}
+
+.ledger-card-title-group {
+    display: flex;
+    align-items: center;
+    gap: 0.9rem;
+}
+
+.ledger-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.25);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.35rem;
+    flex-shrink: 0;
+}
+
+.ledger-card h3 {
+    font-family: var(--font-heading);
+    font-size: 1.12rem;
+    font-weight: 700;
+    color: #fff;
+    margin: 0 0 0.2rem 0;
+}
+
+.ledger-card-sub {
+    font-size: 0.82rem;
+    color: var(--text-dim);
+    margin: 0;
+}
+
+.ledger-subtotal-badge {
+    padding: 0.35rem 0.85rem;
+    border-radius: 999px;
+    font-size: 0.88rem;
+    font-weight: 700;
+    font-family: var(--font-heading);
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+.ledger-subtotal-badge.blue {
+    background: rgba(56, 189, 248, 0.15);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    color: #38bdf8;
+}
+
+.ledger-subtotal-badge.amber {
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.35);
+    color: #fbbf24;
+}
+
+.ledger-items-list {
+    display: flex;
+    flex-direction: column;
+    gap: 0.65rem;
+    margin-bottom: 1.2rem;
+    flex: 1;
+}
+
+.ledger-item-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem 0.95rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    border-radius: 8px;
+    transition: all 0.2s ease;
+    gap: 1rem;
+}
+
+.ledger-item-row:hover {
+    background: rgba(255, 255, 255, 0.045);
+    border-color: rgba(255, 255, 255, 0.09);
+    transform: translateX(3px);
+}
+
+.ledger-item-left {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    min-width: 0;
+}
+
+.ledger-item-icon {
+    font-size: 1.2rem;
+    flex-shrink: 0;
+}
+
+.ledger-item-info {
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.ledger-item-name {
+    font-size: 0.88rem;
+    font-weight: 600;
+    color: #f1f5f9;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ledger-item-desc {
+    font-size: 0.76rem;
+    color: #64748b;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.ledger-item-cost {
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: #fff;
+    flex-shrink: 0;
+}
+
+.ledger-card-footer {
+    padding-top: 0.85rem;
+    border-top: 1px dashed rgba(255, 255, 255, 0.08);
+    font-size: 0.78rem;
+    color: #94a3b8;
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+/* Ledger Grand Summary Strip */
+.ledger-summary-strip {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: rgba(10, 15, 26, 0.85);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: var(--radius-md);
+    padding: 1.4rem 1.8rem;
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4), 0 0 20px rgba(16, 185, 129, 0.05);
+    gap: 1.5rem;
+}
+
+.summary-stat-box {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+    flex: 1;
+}
+
+.summary-stat-box.highlight {
+    flex: 1.4;
+}
+
+.summary-stat-label {
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    font-weight: 600;
+    color: #94a3b8;
+}
+
+.summary-stat-value {
+    font-family: var(--font-heading);
+    font-size: 1.8rem;
+    font-weight: 800;
+    letter-spacing: -0.02em;
+}
+
+.summary-stat-value.amber {
+    color: #fbbf24;
+}
+
+.summary-stat-value.rose {
+    color: #fb7185;
+}
+
+.summary-stat-value.emerald {
+    color: #34d399;
+    font-size: 2.1rem;
+    text-shadow: 0 0 20px rgba(52, 211, 153, 0.3);
+}
+
+.summary-stat-sub {
+    font-size: 0.8rem;
+    color: #64748b;
+}
+
+.summary-stat-divider {
+    width: 1px;
+    height: 50px;
+    background: rgba(255, 255, 255, 0.08);
+}
+
 .bento-card::before {
     content: '';
     position: absolute;
@@ -1235,6 +1501,18 @@ tfoot td {
     .deductions-cards-grid {
         grid-template-columns: repeat(2, 1fr);
     }
+    .ledger-cards-grid {
+        grid-template-columns: 1fr;
+    }
+    .ledger-summary-strip {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 1.2rem;
+    }
+    .summary-stat-divider {
+        width: 100%;
+        height: 1px;
+    }
     .secondary-kpi-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -1262,6 +1540,29 @@ tfoot td {
     }
     .deductions-cards-grid {
         grid-template-columns: 1fr;
+    }
+    .ledger-panel {
+        padding: 1.25rem 0.9rem;
+    }
+    .ledger-item-row {
+        padding: 0.65rem 0.75rem;
+    }
+    .ledger-item-name {
+        font-size: 0.82rem;
+    }
+    .ledger-item-desc {
+        font-size: 0.72rem;
+    }
+    .summary-stat-value.emerald {
+        font-size: 1.7rem;
+    }
+    .summary-stat-value {
+        font-size: 1.45rem;
+    }
+    .ledger-card-header {
+        flex-direction: column;
+        align-items: flex-start;
+        gap: 0.6rem;
     }
     .ratio-labels-row,
     .comparison-labels-row {

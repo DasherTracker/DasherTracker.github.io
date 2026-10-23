@@ -1,12 +1,28 @@
 /* ==========================================================================
-   DASHER TRACKER — MODERN SCRIPT ENGINE (v3.3.0)
+   DASHER TRACKER — MODERN SCRIPT ENGINE (v3.4.0)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
-const CACHE_KEY = 'dasher_tracker_data_v8';
-const CACHE_TIME_KEY = 'dasher_tracker_time_v8';
+const CACHE_KEY = 'dasher_tracker_data_v9';
+const CACHE_TIME_KEY = 'dasher_tracker_time_v9';
 const VISITOR_API_URL = 'https://livecounters-8eaa8-default-rtdb.firebaseio.com/labData';
 const IRS_MILEAGE_RATE = 0.67; // 2024-2026 IRS Standard Business Mileage Rate ($0.67/mi)
+
+// Itemized Gear, Supplies & Vehicle Upkeep Data
+const DASHER_GEAR_ITEMS = [
+    { name: "Commercial Insulated Catering Bag", desc: "Heavy duty thermal pack for large pizza & catering orders", cost: 45.00, icon: "🛍️" },
+    { name: "6-Cup Heavy Duty Drink Carrier Caddy", desc: "Spill-proof insulated multi-beverage organizer", cost: 24.99, icon: "🥤" },
+    { name: "MagSafe Wireless Auto-Clamping Phone Mount", desc: "Fast 15W Qi wireless charging cockpit cradle", cost: 29.99, icon: "📱" },
+    { name: "Dual Dash Cam (Front 4K + Cabin 1080p)", desc: "Dispute protection, night vision & parking guard", cost: 79.99, icon: "📹" },
+    { name: "Braided Fast Charge Cables & 12V Car Hub", desc: "USB-C PD high-durability charging bundle", cost: 14.99, icon: "🔌" }
+];
+
+const VEHICLE_MAINTENANCE_ITEMS = [
+    { name: "All-Season Delivery Tires (Pair + Balance)", desc: "High-mileage tread life & wet weather traction", cost: 480.00, icon: "🛞" },
+    { name: "Full Synthetic Oil Change & Filter", desc: "Mobil 1 0W-20 & OEM multipoint vehicle safety inspection", cost: 65.00, icon: "🛢️" },
+    { name: "Ceramic Brake Pads & Rotor Resurfacing", desc: "Front brake pad replacement for stop-and-go city routes", cost: 160.00, icon: "🛑" },
+    { name: "Silicone Heavy Weather Wiper Blades", desc: "All-weather streak-free beam wiper blade pair", cost: 35.00, icon: "🌧️" }
+];
 
 let cachedChartData = null;
 let currentChartType = 'line';
@@ -367,6 +383,7 @@ function processData(data) {
         renderExecutiveBento(totalEarnings, totalGas, totalDashHoursNum, totalMiles);
         renderTippingIntelligence(totalDeliveries, totalNoTipping, totalTips + totalCashTips, totalEarnings);
         renderDeductionsIntelligence(totalMiles, totalGas, totalDeliveries);
+        renderItemizedLedger(totalEarnings, totalGas);
         renderSecondaryKpis(totalEarnings, totalBasePay, totalTips + totalCashTips, totalGas);
         renderChart(currentChartType);
         renderRatings(ratingsHeaders, ratingsValues);
@@ -478,6 +495,34 @@ function renderDeductionsIntelligence(totalMiles, totalGas, totalDeliveries) {
 
     const compGasText = document.getElementById('compGasText');
     if (compGasText) compGasText.textContent = `$${totalGas.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${gasPct.toFixed(1)}%)`;
+}
+
+/* ==========================================================================
+   ITEMIZED GEAR, SUPPLIES & VEHICLE UPKEEP LEDGER RENDERER
+   ========================================================================== */
+function renderItemizedLedger(totalEarnings, totalGas) {
+    const gearSubtotal = DASHER_GEAR_ITEMS.reduce((sum, item) => sum + item.cost, 0);
+    const maintSubtotal = VEHICLE_MAINTENANCE_ITEMS.reduce((sum, item) => sum + item.cost, 0);
+    const totalUpkeep = gearSubtotal + maintSubtotal;
+    const trueNetProfit = Math.max(0, totalEarnings - totalGas - totalUpkeep);
+    const netMarginPct = totalEarnings > 0 ? ((trueNetProfit / totalEarnings) * 100) : 0;
+
+    // Subtotal Badges
+    const gearBadge = document.getElementById('gearSubtotalBadge');
+    if (gearBadge) gearBadge.textContent = `$${gearSubtotal.toFixed(2)} Subtotal`;
+
+    const maintBadge = document.getElementById('maintSubtotalBadge');
+    if (maintBadge) maintBadge.textContent = `$${maintSubtotal.toFixed(2)} Subtotal`;
+
+    // Grand Summary Strip
+    animateValue('ledgerTotalUpkeep', totalUpkeep, true);
+    animateValue('ledgerTotalGas', totalGas, true);
+    animateValue('ledgerTrueNetProfit', trueNetProfit, true);
+
+    const netMarginSub = document.getElementById('ledgerNetMarginSub');
+    if (netMarginSub) {
+        netMarginSub.textContent = `${netMarginPct.toFixed(1)}% Net Margin of Gross ($${totalEarnings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`;
+    }
 }
 
 /* ==========================================================================

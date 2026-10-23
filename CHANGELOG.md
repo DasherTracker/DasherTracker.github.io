@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.4.0] - 2026-10-23
+### Added
+- Added itemized Dasher gear and supplies operating expense ledger.
+- Added vehicle maintenance and wear-and-tear upkeep tracking card.
+- Added True Net Take-Home Pay real financial summary strip.
+- Added real-time profit margin and out-of-pocket ledger calculations.
+
 ## [3.3.0] - 2026-10-23
 ### Added
 - Added dedicated Tax Deductions and Expense Intelligence section.
