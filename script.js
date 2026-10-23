@@ -1,14 +1,15 @@
 /* ==========================================================================
-   DASHER TRACKER — MODERN SCRIPT ENGINE (v3.4.0)
+   DASHER TRACKER — MODERN SCRIPT ENGINE (v3.5.0)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
-const CACHE_KEY = 'dasher_tracker_data_v9';
-const CACHE_TIME_KEY = 'dasher_tracker_time_v9';
+const EXPENSES_API_URL = 'https://script.google.com/macros/s/AKfycbyqcoyShfJ-Gr3WWUHL0eOJS9kwonSbHqmZSb_JBBJWVPS2H1i7zTTSmTjU0F_ryg/exec?action=getExpenses';
+const CACHE_KEY = 'dasher_tracker_data_v10';
+const CACHE_TIME_KEY = 'dasher_tracker_time_v10';
 const VISITOR_API_URL = 'https://livecounters-8eaa8-default-rtdb.firebaseio.com/labData';
 const IRS_MILEAGE_RATE = 0.67; // 2024-2026 IRS Standard Business Mileage Rate ($0.67/mi)
 
-// Itemized Gear, Supplies & Vehicle Upkeep Data
+// Fallback Starter Gear & Upkeep Data
 const DASHER_GEAR_ITEMS = [
     { name: "Commercial Insulated Catering Bag", desc: "Heavy duty thermal pack for large pizza & catering orders", cost: 45.00, icon: "🛍️" },
     { name: "6-Cup Heavy Duty Drink Carrier Caddy", desc: "Spill-proof insulated multi-beverage organizer", cost: 24.99, icon: "🥤" },
@@ -27,10 +28,24 @@ const VEHICLE_MAINTENANCE_ITEMS = [
 let cachedChartData = null;
 let currentChartType = 'line';
 let earningsChartInstance = null;
+let liveExpensesData = null;
+let cachedSummaryEarnings = null;
+let cachedSummaryGas = null;
+
+function escapeHtml(str) {
+    if (!str) return '';
+    return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&#39;');
+}
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 0. Initialize Live Visitor Telemetry
+    // 0. Initialize Live Visitor Telemetry & Fetch Expenses
     initVisitorCounter();
+    fetchLiveExpenses();
 
     // 1. Immediately render cached data if available (0ms instant paint)
     const hasCached = loadFromLocalStorage();
@@ -77,8 +92,36 @@ async function initVisitorCounter() {
     }
 }
 
+async function fetchLiveExpenses() {
+    try {
+        const res = await fetch(EXPENSES_API_URL);
+        const json = await res.json();
+        if (json && json.success && Array.isArray(json.items) && json.items.length > 0) {
+            liveExpensesData = json.items;
+            try {
+                localStorage.setItem('dasher_live_expenses_cache', JSON.stringify(json.items));
+            } catch (e) {}
+            if (cachedSummaryEarnings !== null && cachedSummaryGas !== null) {
+                renderItemizedLedger(cachedSummaryEarnings, cachedSummaryGas);
+            }
+        }
+    } catch (e) {
+        console.warn("Could not load live expenses from Google Sheet, checking offline cache:", e);
+        const offline = localStorage.getItem('dasher_live_expenses_cache');
+        if (offline) {
+            try {
+                liveExpensesData = JSON.parse(offline);
+            } catch (err) {}
+        }
+    }
+}
+
 function loadFromLocalStorage() {
     try {
+        const offlineExp = localStorage.getItem('dasher_live_expenses_cache');
+        if (offlineExp) {
+            try { liveExpensesData = JSON.parse(offlineExp); } catch (e) {}
+        }
         const cachedRaw = localStorage.getItem(CACHE_KEY);
         if (cachedRaw) {
             const data = JSON.parse(cachedRaw);
@@ -104,6 +147,7 @@ function updateLastUpdatedTag(timestamp) {
 async function fetchDashboardData() {
     const refreshBtn = document.getElementById('refreshBtn');
     if (refreshBtn) refreshBtn.classList.add('loading');
+    fetchLiveExpenses();
     
     try {
         const fetchUrl = `${CSV_URL}&_cb=${Date.now()}`;
@@ -500,9 +544,52 @@ function renderDeductionsIntelligence(totalMiles, totalGas, totalDeliveries) {
 /* ==========================================================================
    ITEMIZED GEAR, SUPPLIES & VEHICLE UPKEEP LEDGER RENDERER
    ========================================================================== */
+function renderLedgerItemList(containerId, items, defaultIcon) {
+    const container = document.getElementById(containerId);
+    if (!container) return;
+    container.innerHTML = '';
+    items.forEach(item => {
+        const row = document.createElement('div');
+        row.className = 'ledger-item-row';
+        row.innerHTML = `
+            <div class="ledger-item-left">
+                <span class="ledger-item-icon">${item.icon || defaultIcon}</span>
+                <div class="ledger-item-info">
+                    <span class="ledger-item-name">${escapeHtml(item.name)}</span>
+                    <span class="ledger-item-desc">${escapeHtml(item.desc || '')}</span>
+                </div>
+            </div>
+            <span class="ledger-item-cost">$${parseFloat(item.cost || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+        `;
+        container.appendChild(row);
+    });
+}
+
 function renderItemizedLedger(totalEarnings, totalGas) {
-    const gearSubtotal = DASHER_GEAR_ITEMS.reduce((sum, item) => sum + item.cost, 0);
-    const maintSubtotal = VEHICLE_MAINTENANCE_ITEMS.reduce((sum, item) => sum + item.cost, 0);
+    cachedSummaryEarnings = totalEarnings;
+    cachedSummaryGas = totalGas;
+
+    let gearItems = DASHER_GEAR_ITEMS;
+    let maintItems = VEHICLE_MAINTENANCE_ITEMS;
+
+    if (liveExpensesData && liveExpensesData.length > 0) {
+        const customGear = liveExpensesData.filter(i => {
+            const c = (i.category || '').toLowerCase();
+            return c.includes('gear') || c.includes('suppl') || (!c.includes('maint') && !c.includes('repair') && !c.includes('vehic') && !c.includes('tire') && !c.includes('oil') && !c.includes('brake'));
+        });
+        const customMaint = liveExpensesData.filter(i => {
+            const c = (i.category || '').toLowerCase();
+            return c.includes('maint') || c.includes('repair') || c.includes('vehic') || c.includes('auto') || c.includes('tire') || c.includes('oil') || c.includes('brake');
+        });
+        if (customGear.length > 0) gearItems = customGear;
+        if (customMaint.length > 0) maintItems = customMaint;
+    }
+
+    renderLedgerItemList('gearItemsList', gearItems, '🎒');
+    renderLedgerItemList('maintItemsList', maintItems, '🛞');
+
+    const gearSubtotal = gearItems.reduce((sum, item) => sum + (parseFloat(item.cost) || 0), 0);
+    const maintSubtotal = maintItems.reduce((sum, item) => sum + (parseFloat(item.cost) || 0), 0);
     const totalUpkeep = gearSubtotal + maintSubtotal;
     const trueNetProfit = Math.max(0, totalEarnings - totalGas - totalUpkeep);
     const netMarginPct = totalEarnings > 0 ? ((trueNetProfit / totalEarnings) * 100) : 0;

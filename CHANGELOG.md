@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.5.0] - 2026-10-23
+### Added
+- Connected ledger directly to live Google Sheets Expenses tab.
+- Created Expenses tab automatically inside user's Google Sheet.
+- Implemented real-time Google Apps Script expenses data endpoint.
+- Rendered gear and maintenance rows dynamically from live sheet.
+
 ## [3.4.0] - 2026-10-23
 ### Added
 - Added itemized Dasher gear and supplies operating expense ledger.
