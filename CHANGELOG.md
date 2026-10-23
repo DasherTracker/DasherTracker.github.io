@@ -1,5 +1,11 @@
 # Changelog
 
+## [3.5.2] - 2026-10-23
+### Added
+- Moved category dropdown buttons to Column B in Expenses sheet.
+- Updated Google Apps Script to parse dynamic 5-column layout.
+- Connected live Web App endpoint to deployment version seven.
+
 ## [3.5.0] - 2026-10-23
 ### Added
 - Connected ledger directly to live Google Sheets Expenses tab.

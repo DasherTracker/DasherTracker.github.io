@@ -1,11 +1,11 @@
 /* ==========================================================================
-   DASHER TRACKER — MODERN SCRIPT ENGINE (v3.5.0)
+   DASHER TRACKER — MODERN SCRIPT ENGINE (v3.5.2)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
-const EXPENSES_API_URL = 'https://script.google.com/macros/s/AKfycbyqcoyShfJ-Gr3WWUHL0eOJS9kwonSbHqmZSb_JBBJWVPS2H1i7zTTSmTjU0F_ryg/exec?action=getExpenses';
-const CACHE_KEY = 'dasher_tracker_data_v10';
-const CACHE_TIME_KEY = 'dasher_tracker_time_v10';
+const EXPENSES_API_URL = 'https://script.google.com/macros/s/AKfycbyWb_ArSnsZVeUrDAOPPTIYsCQ3l0BM226l7UM--HsHnBTtvGly2UcP9VgKRd42dOo/exec?action=getExpenses';
+const CACHE_KEY = 'dasher_tracker_data_v12';
+const CACHE_TIME_KEY = 'dasher_tracker_time_v12';
 const VISITOR_API_URL = 'https://livecounters-8eaa8-default-rtdb.firebaseio.com/labData';
 const IRS_MILEAGE_RATE = 0.67; // 2024-2026 IRS Standard Business Mileage Rate ($0.67/mi)
 
