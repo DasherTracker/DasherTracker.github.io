@@ -1,5 +1,17 @@
 # Changelog
 
+## [3.0.0] - 2026-10-23
+### Added
+- Brand new Crimson and Obsidian dark Bento Grid redesign.
+- Added live sync pulse indicator and command bar.
+- Added real-time hourly rate and mileage efficiency metrics.
+- New interactive earnings, gas, and mileage efficiency charts.
+- Added Platinum Dasher tier prestige status shield.
+- Sleek animated five-star rating breakdown progress bars.
+- Modern customer compliments and feedback reaction chips.
+- Upgraded monthly financial table with custom achievement tags.
+- Fully responsive mobile layout with zero horizontal overflow.
+
 ## [2.5.0] - 2026-08-10
 ### Added
 - Added visible version number badge (`v2.5.0`) in footer layout.

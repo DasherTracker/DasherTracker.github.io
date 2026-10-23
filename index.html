@@ -3,10 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dasher Dashboard</title>
-    <meta name="description" content="Beautiful dashboard for Dasher Tracker data">
-    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=2.0.1">
+    <title>Dasher Tracker — Real-Time Delivery Analytics</title>
+    <meta name="description" content="Modern real-time delivery earnings, metrics, and analytics intelligence dashboard for Dashers.">
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
+    <!-- Google Fonts: Plus Jakarta Sans, Outfit, JetBrains Mono -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css?v=3.0.0">
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Chart.js for data visualization -->
@@ -16,31 +20,124 @@
     <div class="background-mesh"></div>
     
     <main class="dashboard-container">
+        <!-- HEADER & COMMAND BAR -->
         <header class="dashboard-header">
-            <h1>Dasher Tracker</h1>
-            <p>Your real-time delivery earnings & analytics</p>
-            <button id="refreshBtn" class="refresh-btn" onclick="fetchDashboardData()">
-                Refresh Data
-            </button>
+            <div class="header-branding">
+                <div class="brand-badge-row">
+                    <div class="brand-logo-icon">⚡</div>
+                    <h1>Dasher Tracker</h1>
+                </div>
+                <div class="header-status-strip">
+                    <span class="live-pill"><span class="pulse-dot"></span> Live Sync Active</span>
+                    <span id="lastUpdatedTag">• Updating...</span>
+                </div>
+            </div>
+            <div class="header-controls">
+                <button id="refreshBtn" class="refresh-btn" onclick="fetchDashboardData()" title="Fetch latest Google Sheets data">
+                    <span class="btn-icon">↻</span> Refresh Live Data
+                </button>
+            </div>
         </header>
 
-        <section class="summary-cards" id="summaryCards">
-            <!-- Cards will be populated by JS -->
-            <div class="card skeleton"></div>
-            <div class="card skeleton"></div>
-            <div class="card skeleton"></div>
-            <div class="card skeleton"></div>
-            <div class="card skeleton"></div>
-            <div class="card skeleton"></div>
+        <!-- TOP BENTO GRID: EXECUTIVE KPIS -->
+        <section class="bento-grid" id="bentoGrid">
+            <!-- Hero Card: Net Earnings -->
+            <div class="bento-card hero-kpi">
+                <div class="card-top-row">
+                    <span class="card-title">Net Profit (After Gas)</span>
+                    <div class="card-icon-badge">💰</div>
+                </div>
+                <div class="card-value-display hero-value" id="cardValNetProfit">$0.00</div>
+                <div class="card-subtext">
+                    <span class="profit-chip positive" id="cardProfitMarginChip">⚡ --% Margin</span>
+                    <span>Total Net Income</span>
+                </div>
+            </div>
+
+            <!-- Hourly Rate Card -->
+            <div class="bento-card">
+                <div class="card-top-row">
+                    <span class="card-title">Avg Hourly Rate</span>
+                    <div class="card-icon-badge">⏱️</div>
+                </div>
+                <div class="card-value-display" id="cardValHourly" style="color: #38bdf8;">$0.00</div>
+                <div class="card-subtext">
+                    <span class="profit-chip neutral" id="cardTotalHoursChip">0 Dash Hrs</span>
+                    <span>Overall Rate</span>
+                </div>
+            </div>
+
+            <!-- Total Deliveries Card -->
+            <div class="bento-card">
+                <div class="card-top-row">
+                    <span class="card-title">Total Deliveries</span>
+                    <div class="card-icon-badge">🛍️</div>
+                </div>
+                <div class="card-value-display" id="cardValDeliveries">0</div>
+                <div class="card-subtext">
+                    <span class="profit-chip positive" id="cardAvgPerOrderChip">$0.00 / order</span>
+                    <span>Avg Payout</span>
+                </div>
+            </div>
+
+            <!-- Mileage & Gas Efficiency Card -->
+            <div class="bento-card">
+                <div class="card-top-row">
+                    <span class="card-title">Gas ROI Efficiency</span>
+                    <div class="card-icon-badge">⛽</div>
+                </div>
+                <div class="card-value-display" id="cardValGasRoi" style="color: #a855f7;">$0.00</div>
+                <div class="card-subtext">
+                    <span class="profit-chip expense" id="cardTotalMilesChip">0 Miles Tracked</span>
+                    <span>Return / $1 Gas</span>
+                </div>
+            </div>
         </section>
 
-        <section class="chart-section glass-panel">
-            <div class="chart-header-row">
-                <h2>Analytics Visualizer</h2>
+        <!-- SECONDARY KPI STRIP -->
+        <section class="secondary-kpi-grid">
+            <div class="mini-kpi-card">
+                <div class="mini-icon-circle emerald">💵</div>
+                <div class="mini-kpi-info">
+                    <span class="mini-kpi-label">Gross Earnings</span>
+                    <span class="mini-kpi-value" id="kpiGrossEarnings">$0.00</span>
+                </div>
+            </div>
+            <div class="mini-kpi-card">
+                <div class="mini-icon-circle cyan">💳</div>
+                <div class="mini-kpi-info">
+                    <span class="mini-kpi-label">Base Pay</span>
+                    <span class="mini-kpi-value" id="kpiBasePay">$0.00</span>
+                </div>
+            </div>
+            <div class="mini-kpi-card">
+                <div class="mini-icon-circle amber">🎁</div>
+                <div class="mini-kpi-info">
+                    <span class="mini-kpi-label">Tips (App + Cash)</span>
+                    <span class="mini-kpi-value" id="kpiTotalTips">$0.00</span>
+                </div>
+            </div>
+            <div class="mini-kpi-card">
+                <div class="mini-icon-circle rose">⛽</div>
+                <div class="mini-kpi-info">
+                    <span class="mini-kpi-label">Gas Spent</span>
+                    <span class="mini-kpi-value" id="kpiTotalGas" style="color: #fb7185;">$0.00</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ANALYTICS VISUALIZER SECTION -->
+        <section class="glass-panel">
+            <div class="panel-header-row">
+                <div class="panel-title-group">
+                    <h2>Analytics Visualizer</h2>
+                    <span class="panel-pill-badge" id="chartSubtitleBadge">Monthly Performance</span>
+                </div>
                 <div class="chart-toggle-group">
                     <button class="chart-btn active" id="chartBtnLine" onclick="switchChart('line')">📈 Earnings Trend</button>
                     <button class="chart-btn" id="chartBtnBar" onclick="switchChart('bar')">📊 Pay vs. Gas</button>
                     <button class="chart-btn" id="chartBtnDonut" onclick="switchChart('donut')">🍩 Income Split</button>
+                    <button class="chart-btn" id="chartBtnEfficiency" onclick="switchChart('efficiency')">⚡ $/Mile Efficiency</button>
                 </div>
             </div>
             <div class="chart-container">
@@ -48,14 +145,62 @@
             </div>
         </section>
 
-        <section class="table-section glass-panel">
-            <h2>Monthly Summary</h2>
+        <!-- PRESTIGE & RATINGS SHOWCASE -->
+        <section class="prestige-bento-layout">
+            <!-- Left: Status Tier Shield Card -->
+            <div class="tier-status-card" id="prestigeTierCard">
+                <div class="tier-shield-header">
+                    <div class="shield-badge-icon">🛡️</div>
+                    <div class="tier-title-wrap">
+                        <h3>Platinum Dasher</h3>
+                        <p class="tier-subtitle">Top Tier Status • Priority Access & VIP Recognition</p>
+                    </div>
+                </div>
+
+                <div class="prestige-metrics-row">
+                    <div class="prestige-mini-stat">
+                        <div class="prestige-stat-label">Customer Rating</div>
+                        <div class="prestige-stat-val gold" id="valCustomerRating">★ 5.0</div>
+                    </div>
+                    <div class="prestige-mini-stat">
+                        <div class="prestige-stat-label">Overall Rating</div>
+                        <div class="prestige-stat-val emerald" id="valOverallRating">100%</div>
+                    </div>
+                    <div class="prestige-mini-stat">
+                        <div class="prestige-stat-label">Lifetime Deliveries</div>
+                        <div class="prestige-stat-val" id="valLifetimeDeliveries">0</div>
+                    </div>
+                </div>
+
+                <!-- Star Rating Progress Rows -->
+                <div class="star-bars-container" id="starBreakdownRows">
+                    <!-- Populated dynamically by JS -->
+                </div>
+            </div>
+
+            <!-- Right: Customer Feedback & Compliments -->
+            <div class="feedback-bento-card">
+                <h3>Customer Feedback & Compliments</h3>
+                <div class="feedback-chips-grid" id="feedbackGrid">
+                    <!-- Populated dynamically by JS -->
+                </div>
+            </div>
+        </section>
+
+        <!-- MONTHLY DATA TABLE SECTION -->
+        <section class="glass-panel">
+            <div class="panel-header-row">
+                <div class="panel-title-group">
+                    <h2>Monthly Financial Breakdown</h2>
+                    <span class="panel-pill-badge" id="tableMonthCountBadge">All Logged Months</span>
+                </div>
+            </div>
             <div class="table-responsive">
                 <table id="dashTable">
                     <thead>
                         <tr>
                             <th>Month</th>
-                            <th>Hours</th>
+                            <th>Dash Hours</th>
                             <th>Active Hours</th>
                             <th>Miles</th>
                             <th>Deliveries</th>
@@ -64,41 +209,28 @@
                             <th>Cash Tips</th>
                             <th>Taxes</th>
                             <th>Gas</th>
-                            <th>Total</th>
+                            <th>Gross Total</th>
                             <th>Hourly Rate</th>
                             <th># No Tip</th>
                             <th>% No Tip</th>
                         </tr>
                     </thead>
                     <tbody id="dashTableBody">
-                        <!-- Rows populated by JS -->
+                        <!-- Populated by JS -->
                     </tbody>
                     <tfoot id="dashTableFoot">
-                        <!-- Total Row populated by JS -->
+                        <!-- Populated by JS -->
                     </tfoot>
                 </table>
             </div>
         </section>
 
-        <section class="ratings-section glass-panel">
-            <h2>Dasher Ratings & Review Breakdown</h2>
-            <div class="ratings-grid" id="ratingsGrid">
-                <!-- Populated by JS -->
-            </div>
-        </section>
-
-        <section class="feedback-section glass-panel">
-            <h2>Customer Feedback & Compliments</h2>
-            <div class="feedback-grid" id="feedbackGrid">
-                <!-- Populated by JS -->
-            </div>
-        </section>
-
+        <!-- FOOTER -->
         <footer class="dashboard-footer">
-            <p>Dasher Tracker <span class="version-badge">v2.5.0</span> • Real-time Delivery Analytics</p>
+            <p>Dasher Tracker <span class="version-badge">v3.0.0</span> • Real-Time Delivery Intelligence Dashboard</p>
         </footer>
     </main>
 
-    <script src="script.js?v=2.5.0"></script>
+    <script src="script.js?v=3.0.0"></script>
 </body>
 </html>

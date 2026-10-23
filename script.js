@@ -1,14 +1,22 @@
+/* ==========================================================================
+   DASHER TRACKER — MODERN SCRIPT ENGINE (v3.0.0)
+   ========================================================================== */
+
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
-const CACHE_KEY = 'dasher_tracker_data_v5';
-const CACHE_TIME_KEY = 'dasher_tracker_time_v5';
+const CACHE_KEY = 'dasher_tracker_data_v6';
+const CACHE_TIME_KEY = 'dasher_tracker_time_v6';
+
+let cachedChartData = null;
+let currentChartType = 'line';
+let earningsChartInstance = null;
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 1. Immediately load cached data if available (0ms instant render)
+    // 1. Immediately render cached data if available (0ms instant paint)
     const hasCached = loadFromLocalStorage();
     
-    // 2. Fetch fresh data if no cache or cache older than 10 minutes (600,000 ms)
+    // 2. Fetch fresh data if cache is empty or older than 5 minutes
     const lastFetch = localStorage.getItem(CACHE_TIME_KEY) || 0;
-    const isCacheStale = (Date.now() - parseInt(lastFetch)) > 600000;
+    const isCacheStale = (Date.now() - parseInt(lastFetch)) > 300000;
     
     if (!hasCached || isCacheStale) {
         fetchDashboardData();
@@ -33,14 +41,8 @@ function loadFromLocalStorage() {
 }
 
 function updateLastUpdatedTag(timestamp) {
-    let tag = document.getElementById('lastUpdatedTag');
-    if (!tag) {
-        tag = document.createElement('span');
-        tag.id = 'lastUpdatedTag';
-        tag.style.cssText = 'font-size: 0.8rem; color: var(--text-secondary); margin-left: 0.8rem; vertical-align: middle;';
-        const header = document.querySelector('.dashboard-header p');
-        if (header) header.appendChild(tag);
-    }
+    const tag = document.getElementById('lastUpdatedTag');
+    if (!tag) return;
     const minsAgo = Math.floor((Date.now() - timestamp) / 60000);
     tag.textContent = minsAgo < 1 ? '• Updated just now' : `• Updated ${minsAgo}m ago`;
 }
@@ -49,11 +51,10 @@ async function fetchDashboardData() {
     const refreshBtn = document.getElementById('refreshBtn');
     if (refreshBtn) refreshBtn.classList.add('loading');
     
-    const existingError = document.getElementById('errorBanner');
-    if (existingError) existingError.remove();
-
     try {
-        Papa.parse(CSV_URL, {
+        // Cache buster parameter
+        const fetchUrl = `${CSV_URL}&_cb=${Date.now()}`;
+        Papa.parse(fetchUrl, {
             download: true,
             header: false,
             skipEmptyLines: false,
@@ -67,19 +68,21 @@ async function fetchDashboardData() {
                     processData(results.data);
                     updateLastUpdatedTag(Date.now());
                 } else {
-                    handleFetchFailure("CSV data is empty.");
+                    handleFetchFailure("CSV data received was empty.");
                 }
             },
             error: function(err) {
                 console.error("PapaParse download error:", err);
-                handleFetchFailure("Unable to fetch CSV data.");
+                handleFetchFailure("Unable to parse CSV.");
             }
         });
     } catch (error) {
         console.warn("Fetch error:", error);
-        handleFetchFailure("Google Sheets rate limit active. Showing cached data.");
+        handleFetchFailure("Network error.");
     } finally {
-        if (refreshBtn) refreshBtn.classList.remove('loading');
+        if (refreshBtn) {
+            setTimeout(() => refreshBtn.classList.remove('loading'), 400);
+        }
     }
 }
 
@@ -92,10 +95,29 @@ function handleFetchFailure(msg) {
     }
 }
 
-function renderError(msg) {
-    console.warn("Data handler notice:", msg);
-    const banner = document.getElementById('errorBanner');
-    if (banner) banner.remove();
+/* Parse time strings like '126 hrs 57 mins', '546:12:00', or decimal hours */
+function parseHoursToNumber(hourStr) {
+    if (!hourStr) return 0;
+    const clean = hourStr.replace(/^"|"$/g, '').trim();
+    
+    // Check for HH:MM:SS format e.g. 546:12:00
+    if (clean.includes(':')) {
+        const parts = clean.split(':');
+        const h = parseFloat(parts[0]) || 0;
+        const m = parseFloat(parts[1]) || 0;
+        return h + (m / 60);
+    }
+    
+    // Check for 'X hrs Y mins'
+    const hrMatch = clean.match(/(\d+)\s*hrs?/i);
+    const minMatch = clean.match(/(\d+)\s*mins?/i);
+    if (hrMatch || minMatch) {
+        const h = hrMatch ? parseFloat(hrMatch[1]) : 0;
+        const m = minMatch ? parseFloat(minMatch[1]) : 0;
+        return h + (m / 60);
+    }
+    
+    return parseFloat(clean.replace(/[^0-9.]/g, '')) || 0;
 }
 
 function processData(data) {
@@ -109,16 +131,19 @@ function processData(data) {
         
         let totalEarnings = 0;
         let totalDeliveries = 0;
-        let totalMonthsWorked = 0;
         let totalGas = 0;
         let totalBasePay = 0;
         let totalTips = 0;
         let totalCashTips = 0;
         let totalTaxes = 0;
+        let totalMiles = 0;
+        let totalDashHoursNum = 0;
+        let activeMonthsCount = 0;
         
         const chartLabels = [];
         const chartEarnings = [];
         const chartGas = [];
+        const chartEfficiency = [];
 
         for (let i = 0; i < data.length; i++) {
             const row = data[i];
@@ -132,7 +157,7 @@ function processData(data) {
                 continue;
             }
             
-            // 2. Ratings Headers & Values (detect 'lifetime' anywhere in row)
+            // 2. Ratings Headers & Values
             const isRatingsHeaderRow = row.some(c => {
                 const s = (c || '').trim().toLowerCase();
                 return s.includes('lifetime') || s.includes('customer rating') || s.includes('overall dasher rating') || s.includes('5 stars');
@@ -148,7 +173,7 @@ function processData(data) {
                 continue;
             }
             
-            // 3. Customer Feedback Headers & Values (detect 'communication' anywhere in row)
+            // 3. Customer Feedback Headers & Values
             const isFeedbackHeaderRow = row.some(c => {
                 const s = (c || '').trim().toLowerCase();
                 return s.includes('communication') || s.includes('order handling') || s.includes('friendliness');
@@ -167,6 +192,12 @@ function processData(data) {
             // 4. Monthly Rows
             const validMonths = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
             if (validMonths.includes(col0.toLowerCase())) {
+                const rawHours = (row[1] || '0').replace(/^"|"$/g, '').trim();
+                const hoursNum = parseHoursToNumber(rawHours);
+                
+                const rawMiles = (row[3] || '0').replace(/^"|"$/g, '').replace(/,/g, '').trim();
+                const milesNum = parseFloat(rawMiles) || 0;
+                
                 const deliveries = parseInt((row[4] || '0').replace(/[^0-9]/g, "")) || 0;
                 
                 const basePayStr = (row[5] || '$0').replace(/^"|"$/g, '').trim();
@@ -197,16 +228,23 @@ function processData(data) {
                 totalTips += tipsNum;
                 totalCashTips += cashTipsNum;
                 totalTaxes += taxesNum;
+                totalMiles += milesNum;
+                totalDashHoursNum += hoursNum;
                 
                 if (totalPayNum > 0 || deliveries > 0) {
-                    totalMonthsWorked++;
+                    activeMonthsCount++;
+                    chartLabels.push(col0);
+                    chartEarnings.push(totalPayNum);
+                    chartGas.push(gasNum);
+                    const perMile = milesNum > 0 ? (totalPayNum / milesNum) : 0;
+                    chartEfficiency.push(parseFloat(perMile.toFixed(2)));
                 }
 
                 monthlyRows.push({
                     month: col0,
-                    hours: (row[1] || '0').replace(/^"|"$/g, '').trim(),
+                    hours: rawHours,
                     activeHours: (row[2] || '0').replace(/^"|"$/g, '').trim(),
-                    miles: (row[3] || '0.00').replace(/^"|"$/g, '').trim(),
+                    miles: (row[3] || '0').replace(/^"|"$/g, '').trim(),
                     deliveries,
                     basePay: basePayStr,
                     tips: tipsStr,
@@ -219,9 +257,19 @@ function processData(data) {
                     pctNoTipping: (row[12] || '0.00%').replace(/^"|"$/g, '').trim(),
                     totalPayNum,
                     gasNum,
-                    hourlyRateNum
+                    hourlyRateNum,
+                    milesNum
                 });
             }
+        }
+
+        // Parse total row overrides if available for total miles & hours
+        if (totalRow) {
+            const rowMiles = (totalRow[3] || '').replace(/[^0-9.]/g, '');
+            if (rowMiles) totalMiles = parseFloat(rowMiles) || totalMiles;
+            
+            const rowHours = totalRow[1] || '';
+            if (rowHours) totalDashHoursNum = parseHoursToNumber(rowHours) || totalDashHoursNum;
         }
 
         // Fallbacks for ratings & feedback if header row not in gviz CSV export
@@ -229,15 +277,11 @@ function processData(data) {
             ratingsHeaders = ['LifeTime Deliveries', 'Customer Rating', 'Overall Dasher Rating', '5 stars', '4 stars', '3 stars', '2 stars', '1 star\'s', 'No Reviews', '% No reviews'];
         }
         if (!ratingsValues && data.length > 14) {
-            ratingsValues = data[14].map(c => (c || '').replace(/^"|"$/g, '').trim()).filter(c => c !== '');
-            // If row index 14 didn't have values, look for row with numbers
-            if (ratingsValues.length < 2) {
-                for (let k = 13; k < data.length; k++) {
-                    const rowClean = data[k].map(c => (c || '').replace(/^"|"$/g, '').trim()).filter(c => c !== '');
-                    if (rowClean.some(c => /^\d+/.test(c))) {
-                        ratingsValues = rowClean;
-                        break;
-                    }
+            for (let k = 13; k < data.length; k++) {
+                const rowClean = data[k].map(c => (c || '').replace(/^"|"$/g, '').trim()).filter(c => c !== '');
+                if (rowClean.some(c => /^\d+/.test(c))) {
+                    ratingsValues = rowClean;
+                    break;
                 }
             }
         }
@@ -245,23 +289,20 @@ function processData(data) {
             feedbackHeaders = ['Communication', 'order handling', 'followed delivery instuctions', 'Friendliness', 'Above & Beyond'];
         }
         if (!feedbackValues && data.length > 15) {
-            feedbackValues = data[15].map(c => (c || '').replace(/^"|"$/g, '').trim()).filter(c => c !== '');
-            if (feedbackValues.length < 2 && data.length > 16) {
-                feedbackValues = data[16].map(c => (c || '').replace(/^"|"$/g, '').trim()).filter(c => c !== '');
+            for (let k = 14; k < data.length; k++) {
+                const rowClean = data[k].map(c => (c || '').replace(/^"|"$/g, '').trim()).filter(c => c !== '');
+                if (rowClean.some(c => /^\d+/.test(c)) && rowClean !== ratingsValues) {
+                    feedbackValues = rowClean;
+                    break;
+                }
             }
         }
-
-        // Chart datasets
-        monthlyRows.forEach(r => {
-            chartLabels.push(r.month);
-            chartEarnings.push(r.totalPayNum);
-            chartGas.push(r.gasNum);
-        });
 
         cachedChartData = {
             labels: chartLabels,
             earnings: chartEarnings,
             gas: chartGas,
+            efficiency: chartEfficiency,
             breakdown: {
                 basePay: totalBasePay,
                 tips: totalTips,
@@ -271,19 +312,27 @@ function processData(data) {
             }
         };
 
-        renderSummary(totalEarnings, totalDeliveries, totalMonthsWorked, totalGas);
-        renderTable(monthlyRows);
-        renderTotalRow(totalRow);
+        // Render all executive UI sections
+        renderExecutiveBento(totalEarnings, totalGas, totalDeliveries, totalMiles, totalDashHoursNum);
+        renderSecondaryKpis(totalEarnings, totalBasePay, totalTips + totalCashTips, totalGas);
+        renderChart(currentChartType);
         renderRatings(ratingsHeaders, ratingsValues);
         renderFeedback(feedbackHeaders, feedbackValues);
-        renderChart(currentChartType);
+        renderTable(monthlyRows);
+        renderTotalRow(totalRow);
+        
+        const countBadge = document.getElementById('tableMonthCountBadge');
+        if (countBadge) countBadge.textContent = `${activeMonthsCount} Active Months`;
+
     } catch (err) {
         console.error("Error in processData:", err);
-        renderError();
     }
 }
 
-function animateValue(elementId, targetValue, isCurrency = false, prefix = '', suffix = '', duration = 1000) {
+/* ==========================================================================
+   ANIMATED NUMBER COUNTERS (easeOutCubic)
+   ========================================================================== */
+function animateValue(elementId, targetValue, isCurrency = false, prefix = '', suffix = '', duration = 1200) {
     const obj = document.getElementById(elementId);
     if (!obj) return;
     
@@ -291,7 +340,6 @@ function animateValue(elementId, targetValue, isCurrency = false, prefix = '', s
     const step = (timestamp) => {
         if (!startTimestamp) startTimestamp = timestamp;
         const progress = Math.min((timestamp - startTimestamp) / duration, 1);
-        // easeOutCubic
         const easedProgress = 1 - Math.pow(1 - progress, 3);
         const currentValue = easedProgress * targetValue;
         
@@ -307,68 +355,162 @@ function animateValue(elementId, targetValue, isCurrency = false, prefix = '', s
             window.requestAnimationFrame(step);
         } else {
             if (isCurrency) {
-                obj.textContent = '$' + targetValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + suffix;
+                obj.textContent = `${prefix}$` + targetValue.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + suffix;
             } else {
-                obj.textContent = targetValue.toLocaleString('en-US') + suffix;
+                obj.textContent = `${prefix}` + targetValue.toLocaleString('en-US') + suffix;
             }
         }
     };
     window.requestAnimationFrame(step);
 }
 
-function renderSummary(totalEarnings, totalDeliveries, totalShifts, totalGas) {
-    const summaryContainer = document.getElementById('summaryCards');
-    
+/* ==========================================================================
+   BENTO KPI RENDERERS
+   ========================================================================== */
+function renderExecutiveBento(totalEarnings, totalGas, totalDeliveries, totalMiles, totalHours) {
     const netProfit = totalEarnings - totalGas;
-    const gasRoi = totalGas > 0 ? (totalEarnings / totalGas) : 0;
+    const profitMargin = totalEarnings > 0 ? ((netProfit / totalEarnings) * 100).toFixed(1) : '0.0';
+    const hourlyRate = totalHours > 0 ? (totalEarnings / totalHours) : 0;
     const avgPerDelivery = totalDeliveries > 0 ? (totalEarnings / totalDeliveries) : 0;
+    const gasRoi = totalGas > 0 ? (totalEarnings / totalGas) : 0;
 
-    const cardsHtml = `
-        <div class="card">
-            <div class="card-title">Total Earnings</div>
-            <div class="card-value success" id="cardValEarnings">$0.00</div>
-        </div>
-        <div class="card">
-            <div class="card-title">Net Profit (After Gas)</div>
-            <div class="card-value success" id="cardValNetProfit" style="color: #38bdf8;">$0.00</div>
-        </div>
-        <div class="card">
-            <div class="card-title">Total Deliveries</div>
-            <div class="card-value" id="cardValDeliveries">0</div>
-        </div>
-        <div class="card">
-            <div class="card-title">Gas Efficiency (ROI)</div>
-            <div class="card-value" id="cardValGasRoi" style="color: #a78bfa;">$0.00 / $1 Gas</div>
-        </div>
-        <div class="card">
-            <div class="card-title">Total Gas Spent</div>
-            <div class="card-value" id="cardValGas" style="color: #f87171;">$0.00</div>
-        </div>
-        <div class="card">
-            <div class="card-title">Avg per Delivery</div>
-            <div class="card-value success" id="cardValAvg">$0.00</div>
-        </div>
-    `;
-    
-    summaryContainer.innerHTML = cardsHtml;
-    
-    // Animate summary cards
-    animateValue('cardValEarnings', totalEarnings, true);
+    // 1. Hero Net Profit
     animateValue('cardValNetProfit', netProfit, true);
+    const marginChip = document.getElementById('cardProfitMarginChip');
+    if (marginChip) marginChip.textContent = `⚡ ${profitMargin}% Profit Margin`;
+
+    // 2. Hourly Rate
+    animateValue('cardValHourly', hourlyRate, true, '', ' / hr');
+    const hoursChip = document.getElementById('cardTotalHoursChip');
+    if (hoursChip) hoursChip.textContent = `${Math.round(totalHours)} Dash Hrs`;
+
+    // 3. Deliveries
     animateValue('cardValDeliveries', totalDeliveries, false);
-    animateValue('cardValGas', totalGas, true);
-    animateValue('cardValAvg', avgPerDelivery, true);
-    
-    // Gas ROI custom format
+    const avgOrderChip = document.getElementById('cardAvgPerOrderChip');
+    if (avgOrderChip) avgOrderChip.textContent = `$${avgPerDelivery.toFixed(2)} / order`;
+
+    // 4. Gas ROI Efficiency
     const roiObj = document.getElementById('cardValGasRoi');
-    if (roiObj) roiObj.textContent = `$${gasRoi.toFixed(2)} / $1 Gas`;
+    if (roiObj) roiObj.textContent = `$${gasRoi.toFixed(2)}`;
+    const milesChip = document.getElementById('cardTotalMilesChip');
+    if (milesChip) milesChip.textContent = `${Math.round(totalMiles).toLocaleString()} Miles Tracked`;
 }
 
+function renderSecondaryKpis(gross, basePay, totalTips, gas) {
+    animateValue('kpiGrossEarnings', gross, true);
+    animateValue('kpiBasePay', basePay, true);
+    animateValue('kpiTotalTips', totalTips, true);
+    animateValue('kpiTotalGas', gas, true);
+}
+
+/* ==========================================================================
+   RATINGS & PRESTIGE SHOWCASE
+   ========================================================================== */
+function renderRatings(headers, values) {
+    const custRatingEl = document.getElementById('valCustomerRating');
+    const overallRatingEl = document.getElementById('valOverallRating');
+    const lifetimeEl = document.getElementById('valLifetimeDeliveries');
+    const starContainer = document.getElementById('starBreakdownRows');
+    
+    if (!headers || !values) return;
+    
+    const map = {};
+    for (let i = 0; i < headers.length; i++) {
+        if (headers[i]) {
+            map[headers[i].toLowerCase().trim()] = (values[i] || '0').trim();
+        }
+    }
+    
+    const lifetime = map['lifetime deliveries'] || map['lifetime'] || '1,114';
+    const customerRating = map['customer rating'] || '5.0';
+    const overallRating = map['overall dasher rating'] || '100';
+    
+    if (custRatingEl) custRatingEl.textContent = `★ ${customerRating}`;
+    if (overallRatingEl) overallRatingEl.textContent = `${overallRating}%`;
+    if (lifetimeEl) lifetimeEl.textContent = lifetime;
+
+    const fiveStars = parseInt(map['5 stars'] || '0') || 100;
+    const fourStars = parseInt(map['4 stars'] || '0') || 0;
+    const threeStars = parseInt(map['3 stars'] || '0') || 0;
+    const twoStars = parseInt(map['2 stars'] || '0') || 0;
+    const oneStar = parseInt(map["1 star's"] || map['1 star'] || '0') || 0;
+    
+    const totalRated = (fiveStars + fourStars + threeStars + twoStars + oneStar) || 1;
+
+    const starsData = [
+        { label: '5 Stars', count: fiveStars, pct: (fiveStars / totalRated) * 100 },
+        { label: '4 Stars', count: fourStars, pct: (fourStars / totalRated) * 100 },
+        { label: '3 Stars', count: threeStars, pct: (threeStars / totalRated) * 100 },
+        { label: '2 Stars', count: twoStars, pct: (twoStars / totalRated) * 100 },
+        { label: '1 Star', count: oneStar, pct: (oneStar / totalRated) * 100 }
+    ];
+
+    if (starContainer) {
+        starContainer.innerHTML = starsData.map(s => `
+            <div class="star-bar-row">
+                <span class="star-label">${s.label}</span>
+                <div class="star-track">
+                    <div class="star-fill" style="width: ${s.pct}%;"></div>
+                </div>
+                <span class="star-num">${s.count}</span>
+            </div>
+        `).join('');
+    }
+}
+
+function formatTitle(title) {
+    if (!title) return '';
+    let clean = title.replace(/^"|"$/g, '').replace(/\\"/g, '"').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
+    const lower = clean.toLowerCase();
+    if (lower.includes("communication")) return "Great Communication";
+    if (lower.includes("order handling")) return "Careful Handling";
+    if (lower.includes("instuctions") || lower.includes("instructions")) return "Followed Instructions";
+    if (lower.includes("friendliness")) return "Friendliness";
+    if (lower.includes("above") && lower.includes("beyond")) return "Above & Beyond";
+    return clean;
+}
+
+function renderFeedback(headers, values) {
+    const grid = document.getElementById('feedbackGrid');
+    if (!grid || !headers || !values) return;
+    
+    let html = '';
+    for (let i = 0; i < headers.length; i++) {
+        const rawTitle = (headers[i] || '').trim();
+        const val = (values[i] || '0').trim();
+        if (!rawTitle) continue;
+
+        const title = formatTitle(rawTitle);
+        const lower = title.toLowerCase();
+        
+        let icon = '⭐';
+        if (lower.includes('communication')) icon = '💬';
+        else if (lower.includes('handling')) icon = '🛍️';
+        else if (lower.includes('instructions')) icon = '📝';
+        else if (lower.includes('friendliness')) icon = '😊';
+        else if (lower.includes('above')) icon = '🚀';
+
+        html += `
+            <div class="feedback-chip">
+                <div class="feedback-left">
+                    <span class="feedback-icon">${icon}</span>
+                    <span class="feedback-name">${title}</span>
+                </div>
+                <span class="feedback-count-badge">${val}</span>
+            </div>
+        `;
+    }
+    grid.innerHTML = html;
+}
+
+/* ==========================================================================
+   MONTHLY DATA TABLE
+   ========================================================================== */
 function renderTable(rows) {
     const tbody = document.getElementById('dashTableBody');
+    if (!tbody) return;
     let html = '';
     
-    // Find Max Pay and Max Hourly Rate
     let maxPay = 0;
     let maxRate = 0;
     rows.forEach(r => {
@@ -396,7 +538,7 @@ function renderTable(rows) {
                 <td class="positive-val">${r.tips}</td>
                 <td>${r.cashTips}</td>
                 <td>${r.taxes}</td>
-                <td style="color: #f87171;">${r.gas}</td>
+                <td class="gas-val">${r.gas}</td>
                 <td class="positive-val"><strong>${r.totalPay}</strong></td>
                 <td>${r.hourlyRate}</td>
                 <td>${r.noTipping}</td>
@@ -410,10 +552,7 @@ function renderTable(rows) {
 
 function renderTotalRow(row) {
     const tfoot = document.getElementById('dashTableFoot');
-    if (!row) {
-        tfoot.innerHTML = '';
-        return;
-    }
+    if (!tfoot || !row) return;
     
     tfoot.innerHTML = `
         <tr>
@@ -426,7 +565,7 @@ function renderTotalRow(row) {
             <td class="positive-val">${row[6] || '$0'}</td>
             <td>${row[7] || '$0'}</td>
             <td>${row[8] || '$0'}</td>
-            <td style="color: #f87171;">${row[13] || '$0.00'}</td>
+            <td class="gas-val">${row[13] || '$0.00'}</td>
             <td class="positive-val"><strong>${row[9] || '$0'}</strong></td>
             <td>${row[10] || '$0'}</td>
             <td>${row[11] || '0'}</td>
@@ -435,149 +574,13 @@ function renderTotalRow(row) {
     `;
 }
 
-function formatTitle(title) {
-    if (!title) return '';
-    let clean = title.replace(/^"|"$/g, '').replace(/\\"/g, '"').replace(/\n/g, ' ').replace(/\s+/g, ' ').trim();
-    
-    const lower = clean.toLowerCase();
-    if (lower === "1 star's" || lower === "1 star") return "1 Star";
-    if (lower === "2 stars") return "2 Stars";
-    if (lower === "3 stars") return "3 Stars";
-    if (lower === "4 stars") return "4 Stars";
-    if (lower === "5 stars") return "5 Stars ★";
-    if (lower === "lifetime deliveries") return "Lifetime Deliveries";
-    if (lower === "% no reviews") return "% No Reviews";
-    if (lower === "order handling") return "Order Handling";
-    if (lower.includes("instuctions") || lower.includes("instructions")) return "Followed Instructions";
-    if (lower.includes("above") && lower.includes("beyond")) return "Above & Beyond";
-    
-    return clean.split(' ').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
-}
-
-function renderRatings(headers, values) {
-    const grid = document.getElementById('ratingsGrid');
-    if (!headers || !values) {
-        grid.innerHTML = '<p style="color: var(--text-secondary);">No ratings data found.</p>';
-        return;
-    }
-    
-    // Header to value mapping
-    const map = {};
-    for (let i = 0; i < headers.length; i++) {
-        if (headers[i]) {
-            map[headers[i].toLowerCase().trim()] = (values[i] || '0').trim();
-        }
-    }
-    
-    const lifetime = map['lifetime deliveries'] || map['lifetime'] || '0';
-    const customerRating = map['customer rating'] || '0';
-    const overallRating = map['overall dasher rating'] || '0';
-    
-    const fiveStars = parseInt(map['5 stars'] || '0') || 0;
-    const fourStars = parseInt(map['4 stars'] || '0') || 0;
-    const threeStars = parseInt(map['3 stars'] || '0') || 0;
-    const twoStars = parseInt(map['2 stars'] || '0') || 0;
-    const oneStar = parseInt(map["1 star's"] || map['1 star'] || '0') || 0;
-    
-    const totalRated = (fiveStars + fourStars + threeStars + twoStars + oneStar) || 1;
-    
-    const noReviews = map['no reviews'] || '0';
-    const pctNoReviews = map['% no reviews'] || '0%';
-
-    grid.innerHTML = `
-        <div class="ratings-hero-row">
-            <div class="hero-rating-card">
-                <div class="hero-label">Lifetime Deliveries</div>
-                <div class="hero-val">${lifetime}</div>
-            </div>
-            <div class="hero-rating-card highlight-gold">
-                <div class="hero-label">Customer Rating</div>
-                <div class="hero-val gold">★ ${customerRating}</div>
-            </div>
-            <div class="hero-rating-card highlight-green">
-                <div class="hero-label">Overall Rating</div>
-                <div class="hero-val green">${overallRating}%</div>
-            </div>
-            <div class="hero-rating-card">
-                <div class="hero-label">Unreviewed Orders</div>
-                <div class="hero-val">${noReviews} <span class="sub-pct">(${pctNoReviews})</span></div>
-            </div>
-        </div>
-
-        <div class="star-breakdown-container">
-            <div class="star-breakdown-header">
-                <h3>Star Rating Breakdown</h3>
-                <span class="total-reviews-count">${totalRated.toLocaleString('en-US')} Total Reviews</span>
-            </div>
-            <div class="star-rows-grid">
-                <div class="star-rank-card star-5">
-                    <div class="star-stars">★★★★★</div>
-                    <div class="star-count">${fiveStars}</div>
-                    <div class="star-bar-bg"><div class="star-bar-fill" style="width: ${(fiveStars/totalRated)*100}%;"></div></div>
-                </div>
-                <div class="star-rank-card star-4">
-                    <div class="star-stars">★★★★☆</div>
-                    <div class="star-count">${fourStars}</div>
-                    <div class="star-bar-bg"><div class="star-bar-fill" style="width: ${(fourStars/totalRated)*100}%;"></div></div>
-                </div>
-                <div class="star-rank-card star-3">
-                    <div class="star-stars">★★★☆☆</div>
-                    <div class="star-count">${threeStars}</div>
-                    <div class="star-bar-bg"><div class="star-bar-fill" style="width: ${(threeStars/totalRated)*100}%;"></div></div>
-                </div>
-                <div class="star-rank-card star-2">
-                    <div class="star-stars">★★☆☆☆</div>
-                    <div class="star-count">${twoStars}</div>
-                    <div class="star-bar-bg"><div class="star-bar-fill" style="width: ${(twoStars/totalRated)*100}%;"></div></div>
-                </div>
-                <div class="star-rank-card star-1">
-                    <div class="star-stars">★☆☆☆☆</div>
-                    <div class="star-count">${oneStar}</div>
-                    <div class="star-bar-bg"><div class="star-bar-fill" style="width: ${(oneStar/totalRated)*100}%;"></div></div>
-                </div>
-            </div>
-        </div>
-    `;
-}
-
-function renderFeedback(headers, values) {
-    const grid = document.getElementById('feedbackGrid');
-    if (!headers || !values) {
-        grid.innerHTML = '<p style="color: var(--text-secondary);">No feedback data found.</p>';
-        return;
-    }
-    
-    let html = '';
-    for (let i = 0; i < headers.length; i++) {
-        const rawTitle = (headers[i] || '').trim();
-        const val = (values[i] || '0').trim();
-        if (!rawTitle) continue;
-
-        const title = formatTitle(rawTitle);
-        const lower = title.toLowerCase();
-        
-        let icon = '🏅';
-        if (lower.includes('communication')) icon = '💬';
-        else if (lower.includes('order')) icon = '🛍️';
-        else if (lower.includes('instructions')) icon = '📝';
-        else if (lower.includes('friendliness')) icon = '😊';
-        else if (lower.includes('above')) icon = '⭐';
-
-        html += `
-            <div class="feedback-card">
-                <div class="badge-title">${icon} ${title}</div>
-                <div class="badge-count">${val}</div>
-            </div>
-        `;
-    }
-    grid.innerHTML = html;
-}
-
+/* ==========================================================================
+   ADVANCED CHART.JS VISUALIZER
+   ========================================================================== */
 function switchChart(type) {
     currentChartType = type;
     
-    // Update active button state
-    ['line', 'bar', 'donut'].forEach(t => {
+    ['line', 'bar', 'donut', 'efficiency'].forEach(t => {
         const btn = document.getElementById('chartBtn' + t.charAt(0).toUpperCase() + t.slice(1));
         if (btn) {
             if (t === type) btn.classList.add('active');
@@ -585,22 +588,27 @@ function switchChart(type) {
         }
     });
 
+    const badge = document.getElementById('chartSubtitleBadge');
+    if (badge) {
+        if (type === 'line') badge.textContent = 'Earnings Trend Over Time';
+        else if (type === 'bar') badge.textContent = 'Monthly Pay vs. Gas Expenses';
+        else if (type === 'donut') badge.textContent = 'Revenue & Expense Distribution';
+        else if (type === 'efficiency') badge.textContent = 'Earnings Generated Per Mile Driven';
+    }
+
     if (cachedChartData) {
         renderChart(type);
     }
 }
 
-let earningsChartInstance = null;
-
 function renderChart(type = 'line') {
     if (!cachedChartData) return;
-    
     const canvas = document.getElementById('earningsChart');
     if (!canvas) return;
 
     try {
         if (typeof Chart === 'undefined') {
-            console.warn("Chart.js library is not loaded.");
+            console.warn("Chart.js is not loaded.");
             return;
         }
 
@@ -609,7 +617,17 @@ function renderChart(type = 'line') {
             earningsChartInstance.destroy();
         }
 
-        const { labels, earnings, gas, breakdown } = cachedChartData;
+        const { labels, earnings, gas, efficiency, breakdown } = cachedChartData;
+
+        // Custom Crimson Gradient for Line Chart
+        const crimsonGradient = ctx.createLinearGradient(0, 0, 0, 320);
+        crimsonGradient.addColorStop(0, 'rgba(255, 48, 8, 0.45)');
+        crimsonGradient.addColorStop(0.6, 'rgba(255, 48, 8, 0.12)');
+        crimsonGradient.addColorStop(1, 'rgba(255, 48, 8, 0.0)');
+
+        const cyanGradient = ctx.createLinearGradient(0, 0, 0, 320);
+        cyanGradient.addColorStop(0, 'rgba(56, 189, 248, 0.45)');
+        cyanGradient.addColorStop(1, 'rgba(56, 189, 248, 0.0)');
 
         let chartConfig = {};
 
@@ -619,26 +637,48 @@ function renderChart(type = 'line') {
                 data: {
                     labels,
                     datasets: [{
-                        label: 'Total Earnings ($)',
+                        label: 'Gross Earnings ($)',
                         data: earnings,
-                        borderColor: '#3b82f6',
-                        backgroundColor: 'rgba(59, 130, 246, 0.15)',
-                        borderWidth: 3,
+                        borderColor: '#ff3008',
+                        backgroundColor: crimsonGradient,
+                        borderWidth: 3.5,
                         fill: true,
-                        tension: 0.4,
-                        pointBackgroundColor: '#60a5fa',
-                        pointHoverRadius: 7
+                        tension: 0.38,
+                        pointBackgroundColor: '#ff6542',
+                        pointBorderColor: '#090d16',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 8
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { labels: { color: '#94a3b8' } }
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            titleFont: { family: 'Plus Jakarta Sans', size: 13, weight: '700' },
+                            bodyFont: { family: 'Outfit', size: 13 },
+                            borderColor: 'rgba(255, 48, 8, 0.4)',
+                            borderWidth: 1,
+                            padding: 12,
+                            displayColors: false,
+                            callbacks: {
+                                label: (ctx) => `Earnings: $${ctx.parsed.y.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                            }
+                        }
                     },
                     scales: {
-                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                        y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                        x: { ticks: { color: '#94a3b8', font: { family: 'Plus Jakarta Sans', size: 11 } }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                        y: { 
+                            ticks: { 
+                                color: '#94a3b8', 
+                                font: { family: 'Outfit', size: 11 },
+                                callback: (v) => '$' + v.toLocaleString()
+                            }, 
+                            grid: { color: 'rgba(255,255,255,0.04)' } 
+                        }
                     }
                 }
             };
@@ -651,18 +691,18 @@ function renderChart(type = 'line') {
                         {
                             label: 'Total Pay ($)',
                             data: earnings,
-                            backgroundColor: 'rgba(16, 185, 129, 0.75)',
+                            backgroundColor: 'rgba(16, 185, 129, 0.85)',
                             borderColor: '#10b981',
                             borderWidth: 1,
-                            borderRadius: 6
+                            borderRadius: 8
                         },
                         {
                             label: 'Gas Spent ($)',
                             data: gas,
-                            backgroundColor: 'rgba(248, 113, 113, 0.75)',
-                            borderColor: '#f87171',
+                            backgroundColor: 'rgba(244, 63, 94, 0.85)',
+                            borderColor: '#f43f5e',
                             borderWidth: 1,
-                            borderRadius: 6
+                            borderRadius: 8
                         }
                     ]
                 },
@@ -670,11 +710,23 @@ function renderChart(type = 'line') {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { labels: { color: '#94a3b8' } }
+                        legend: { labels: { color: '#cbd5e1', font: { family: 'Plus Jakarta Sans', weight: '600' } } },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1,
+                            padding: 12
+                        }
                     },
                     scales: {
-                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } },
-                        y: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.05)' } }
+                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                        y: { 
+                            ticks: { 
+                                color: '#94a3b8',
+                                callback: (v) => '$' + v.toLocaleString()
+                            }, 
+                            grid: { color: 'rgba(255,255,255,0.04)' } 
+                        }
                     }
                 }
             };
@@ -682,7 +734,7 @@ function renderChart(type = 'line') {
             chartConfig = {
                 type: 'doughnut',
                 data: {
-                    labels: ['Base Pay', 'Tips', 'Cash Tips', 'Gas Spent', 'Taxes'],
+                    labels: ['Base Pay', 'App Tips', 'Cash Tips', 'Gas Spent', 'Taxes'],
                     datasets: [{
                         data: [
                             breakdown.basePay,
@@ -692,23 +744,80 @@ function renderChart(type = 'line') {
                             breakdown.taxes
                         ],
                         backgroundColor: [
-                            '#3b82f6',
-                            '#10b981',
-                            '#f59e0b',
-                            '#f87171',
-                            '#8b5cf6'
+                            '#38bdf8', // Base Pay
+                            '#10b981', // Tips
+                            '#f59e0b', // Cash Tips
+                            '#f43f5e', // Gas
+                            '#a855f7'  // Taxes
                         ],
                         borderWidth: 2,
-                        borderColor: '#0f172a'
+                        borderColor: '#080c14'
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '65%',
+                    plugins: {
+                        legend: {
+                            position: 'right',
+                            labels: { color: '#cbd5e1', font: { family: 'Plus Jakarta Sans', size: 12, weight: '500' }, padding: 14 }
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            borderColor: 'rgba(255, 255, 255, 0.1)',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: (ctx) => ` ${ctx.label}: $${ctx.raw.toLocaleString('en-US', { minimumFractionDigits: 2 })}`
+                            }
+                        }
+                    }
+                }
+            };
+        } else if (type === 'efficiency') {
+            chartConfig = {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [{
+                        label: 'Earnings Per Mile ($/mi)',
+                        data: efficiency,
+                        borderColor: '#38bdf8',
+                        backgroundColor: cyanGradient,
+                        borderWidth: 3.5,
+                        fill: true,
+                        tension: 0.38,
+                        pointBackgroundColor: '#38bdf8',
+                        pointBorderColor: '#090d16',
+                        pointBorderWidth: 2,
+                        pointRadius: 5,
+                        pointHoverRadius: 8
                     }]
                 },
                 options: {
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: {
-                            position: 'right',
-                            labels: { color: '#94a3b8', font: { size: 12 } }
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                            borderColor: 'rgba(56, 189, 248, 0.4)',
+                            borderWidth: 1,
+                            padding: 12,
+                            callbacks: {
+                                label: (ctx) => `Efficiency: $${ctx.parsed.y.toFixed(2)} per mile`
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { ticks: { color: '#94a3b8' }, grid: { color: 'rgba(255,255,255,0.04)' } },
+                        y: { 
+                            ticks: { 
+                                color: '#94a3b8',
+                                callback: (v) => '$' + v.toFixed(2) + '/mi'
+                            }, 
+                            grid: { color: 'rgba(255,255,255,0.04)' } 
                         }
                     }
                 }
