@@ -1,11 +1,12 @@
 /* ==========================================================================
-   DASHER TRACKER — MODERN SCRIPT ENGINE (v3.2.0)
+   DASHER TRACKER — MODERN SCRIPT ENGINE (v3.3.0)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
-const CACHE_KEY = 'dasher_tracker_data_v7';
-const CACHE_TIME_KEY = 'dasher_tracker_time_v7';
+const CACHE_KEY = 'dasher_tracker_data_v8';
+const CACHE_TIME_KEY = 'dasher_tracker_time_v8';
 const VISITOR_API_URL = 'https://livecounters-8eaa8-default-rtdb.firebaseio.com/labData';
+const IRS_MILEAGE_RATE = 0.67; // 2024-2026 IRS Standard Business Mileage Rate ($0.67/mi)
 
 let cachedChartData = null;
 let currentChartType = 'line';
@@ -363,14 +364,15 @@ function processData(data) {
         };
 
         // Render all UI sections
-        renderExecutiveBento(totalEarnings, totalGas, totalDashHoursNum);
+        renderExecutiveBento(totalEarnings, totalGas, totalDashHoursNum, totalMiles);
         renderTippingIntelligence(totalDeliveries, totalNoTipping, totalTips + totalCashTips, totalEarnings);
+        renderDeductionsIntelligence(totalMiles, totalGas, totalDeliveries);
         renderSecondaryKpis(totalEarnings, totalBasePay, totalTips + totalCashTips, totalGas);
         renderChart(currentChartType);
         renderRatings(ratingsHeaders, ratingsValues);
         renderFeedback(feedbackHeaders, feedbackValues);
         renderTable(monthlyRows);
-        renderTotalRow(totalRow);
+        renderTotalRow(totalRow, totalMiles);
         
         const countBadge = document.getElementById('tableMonthCountBadge');
         if (countBadge) countBadge.textContent = `${activeMonthsCount} Active Months`;
@@ -418,7 +420,7 @@ function animateValue(elementId, targetValue, isCurrency = false, prefix = '', s
 /* ==========================================================================
    BENTO KPI RENDERERS
    ========================================================================== */
-function renderExecutiveBento(totalEarnings, totalGas, totalHours) {
+function renderExecutiveBento(totalEarnings, totalGas, totalHours, totalMiles) {
     const netProfit = totalEarnings - totalGas;
     const profitMargin = totalEarnings > 0 ? ((netProfit / totalEarnings) * 100).toFixed(1) : '0.0';
     const hourlyRate = totalHours > 0 ? (totalEarnings / totalHours) : 0;
@@ -437,6 +439,45 @@ function renderExecutiveBento(totalEarnings, totalGas, totalHours) {
     // 3. Gas ROI Efficiency
     const roiObj = document.getElementById('cardValGasRoi');
     if (roiObj) roiObj.textContent = `$${gasRoi.toFixed(2)}`;
+    const milesChip = document.getElementById('cardTotalMilesChip');
+    if (milesChip) milesChip.textContent = `${Math.round(totalMiles || 8986).toLocaleString()} Miles Tracked`;
+}
+
+/* ==========================================================================
+   TAX DEDUCTIONS & EXPENSE INTELLIGENCE RENDERER
+   ========================================================================== */
+function renderDeductionsIntelligence(totalMiles, totalGas, totalDeliveries) {
+    const totalDeduction = totalMiles * IRS_MILEAGE_RATE;
+    const advantageOverGas = Math.max(0, totalDeduction - totalGas);
+    const taxSavings = totalDeduction * 0.25; // Estimated ~25% self-employment & income tax shield
+    const deductionPerOrder = totalDeliveries > 0 ? (totalDeduction / totalDeliveries) : 0;
+
+    // Animate Deduction Metric Cards
+    animateValue('cardValTotalDeduction', totalDeduction, true);
+    animateValue('cardValTaxSavings', taxSavings, true);
+    animateValue('cardValDeductionPerOrder', deductionPerOrder, true, '', ' / order');
+
+    const milesEl = document.getElementById('cardValDeductionMiles');
+    if (milesEl) milesEl.textContent = `${Math.round(totalMiles).toLocaleString()} mi`;
+
+    const advChip = document.getElementById('cardDeductionAdvantageChip');
+    if (advChip) advChip.textContent = `+ $${advantageOverGas.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} over gas`;
+
+    // Comparison Bar Math
+    const totalBasis = totalDeduction + totalGas;
+    const deductionPct = totalBasis > 0 ? (totalDeduction / totalBasis) * 100 : 76.3;
+    const gasPct = totalBasis > 0 ? (totalGas / totalBasis) * 100 : 23.7;
+
+    const compSegmentDeduction = document.getElementById('compSegmentDeduction');
+    const compSegmentGas = document.getElementById('compSegmentGas');
+    if (compSegmentDeduction) compSegmentDeduction.style.width = `${deductionPct.toFixed(1)}%`;
+    if (compSegmentGas) compSegmentGas.style.width = `${gasPct.toFixed(1)}%`;
+
+    const compDeductionText = document.getElementById('compDeductionText');
+    if (compDeductionText) compDeductionText.textContent = `$${totalDeduction.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${deductionPct.toFixed(1)}%)`;
+
+    const compGasText = document.getElementById('compGasText');
+    if (compGasText) compGasText.textContent = `$${totalGas.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} (${gasPct.toFixed(1)}%)`;
 }
 
 /* ==========================================================================
@@ -618,6 +659,7 @@ function renderTable(rows) {
                 <td>${r.hours}</td>
                 <td>${r.activeHours}</td>
                 <td>${r.miles}</td>
+                <td><strong class="deduction-val">$${(r.milesNum * IRS_MILEAGE_RATE).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
                 <td>${r.deliveries.toLocaleString('en-US')}</td>
                 <td>${r.basePay}</td>
                 <td class="positive-val">${r.tips}</td>
@@ -635,16 +677,20 @@ function renderTable(rows) {
     tbody.innerHTML = html;
 }
 
-function renderTotalRow(row) {
+function renderTotalRow(row, totalMiles) {
     const tfoot = document.getElementById('dashTableFoot');
     if (!tfoot || !row) return;
     
+    const milesTotal = totalMiles || parseFloat((row[3] || '0').replace(/[^0-9.]/g, '')) || 8986;
+    const totalDeductionVal = milesTotal * IRS_MILEAGE_RATE;
+
     tfoot.innerHTML = `
         <tr>
             <td><strong>${row[0] || 'Total'}</strong></td>
             <td>${row[1] || '0'}</td>
             <td>${row[2] || '0'}</td>
             <td>${row[3] || '0'}</td>
+            <td><strong class="deduction-val">$${totalDeductionVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
             <td>${row[4] || '0'}</td>
             <td>${row[5] || '$0'}</td>
             <td class="positive-val">${row[6] || '$0'}</td>

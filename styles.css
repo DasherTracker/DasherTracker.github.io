@@ -382,6 +382,167 @@ body {
     box-shadow: 0 0 10px rgba(244, 63, 94, 0.4);
 }
 
+/* ==========================================================================
+   TAX DEDUCTIONS & EXPENSE INTELLIGENCE SECTION
+   ========================================================================== */
+.deductions-intelligence-panel {
+    border-color: rgba(245, 158, 11, 0.25);
+    box-shadow: 0 10px 35px rgba(0, 0, 0, 0.35), 0 0 25px rgba(245, 158, 11, 0.06);
+}
+
+.panel-pill-badge.amber {
+    background: rgba(245, 158, 11, 0.12);
+    border-color: rgba(245, 158, 11, 0.35);
+    color: #fbbf24;
+}
+
+.deductions-cards-grid {
+    display: grid;
+    grid-template-columns: 1.3fr 1fr 1fr 1fr;
+    gap: 1.25rem;
+    margin-bottom: 1.5rem;
+}
+
+.deduction-card {
+    background: rgba(10, 15, 26, 0.65);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 1.3rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    transition: all 0.25s ease;
+}
+
+.deduction-card:hover {
+    background: rgba(20, 28, 48, 0.8);
+    transform: translateY(-2px);
+}
+
+.deduction-card.highlight-amber {
+    border-color: rgba(245, 158, 11, 0.35);
+    background: linear-gradient(145deg, rgba(245, 158, 11, 0.08) 0%, rgba(10, 15, 26, 0.7) 100%);
+}
+
+.deduction-card.highlight-emerald {
+    border-color: rgba(16, 185, 129, 0.35);
+    background: linear-gradient(145deg, rgba(16, 185, 129, 0.08) 0%, rgba(10, 15, 26, 0.7) 100%);
+}
+
+.card-icon-badge.amber {
+    background: rgba(245, 158, 11, 0.15);
+    border-color: rgba(245, 158, 11, 0.35);
+    color: #fbbf24;
+}
+
+.card-icon-badge.cyan {
+    background: rgba(56, 189, 248, 0.15);
+    border-color: rgba(56, 189, 248, 0.35);
+    color: var(--cyan-accent);
+}
+
+.card-icon-badge.purple {
+    background: rgba(168, 85, 247, 0.15);
+    border-color: rgba(168, 85, 247, 0.35);
+    color: var(--purple-accent);
+}
+
+.card-value-display.amber {
+    color: #fbbf24;
+}
+
+.card-value-display.cyan {
+    color: var(--cyan-accent);
+}
+
+.card-value-display.purple {
+    color: #c084fc;
+}
+
+/* Comparison Bar */
+.deductions-comparison-container {
+    background: rgba(10, 15, 26, 0.75);
+    border: 1px solid var(--glass-border);
+    border-radius: var(--radius-md);
+    padding: 1.2rem 1.4rem;
+}
+
+.comparison-labels-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    font-size: 0.88rem;
+    color: var(--text-muted);
+}
+
+.comparison-labels-row strong {
+    color: #fff;
+    font-family: var(--font-heading);
+}
+
+.comparison-dot {
+    display: inline-block;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    margin-right: 0.4rem;
+}
+
+.comparison-dot.amber {
+    background: #f59e0b;
+    box-shadow: 0 0 8px #f59e0b;
+}
+
+.comparison-dot.rose {
+    background: #f43f5e;
+    box-shadow: 0 0 8px #f43f5e;
+}
+
+.comparison-track-bar {
+    height: 14px;
+    background: rgba(255, 255, 255, 0.06);
+    border-radius: 999px;
+    overflow: hidden;
+    display: flex;
+    padding: 2px;
+    gap: 2px;
+    margin-bottom: 0.8rem;
+}
+
+.comparison-segment {
+    height: 100%;
+    border-radius: 999px;
+    transition: width 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.comparison-segment.deduction {
+    background: linear-gradient(135deg, #f59e0b 0%, #fbbf24 100%);
+    box-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+}
+
+.comparison-segment.gas {
+    background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+    box-shadow: 0 0 10px rgba(244, 63, 94, 0.4);
+}
+
+.comparison-summary-note {
+    font-size: 0.84rem;
+    color: #94a3b8;
+    background: rgba(255, 255, 255, 0.02);
+    border-radius: var(--radius-sm);
+    padding: 0.45rem 0.75rem;
+}
+
+.comparison-summary-note strong {
+    color: #fbbf24;
+}
+
+.deduction-val {
+    color: #fbbf24;
+    font-weight: 600;
+}
+
 .bento-card::before {
     content: '';
     position: absolute;
@@ -1071,6 +1232,9 @@ tfoot td {
     .tipping-cards-grid {
         grid-template-columns: 1fr;
     }
+    .deductions-cards-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
     .secondary-kpi-grid {
         grid-template-columns: repeat(2, 1fr);
     }
@@ -1096,7 +1260,11 @@ tfoot td {
     .tipping-cards-grid {
         grid-template-columns: 1fr;
     }
-    .ratio-labels-row {
+    .deductions-cards-grid {
+        grid-template-columns: 1fr;
+    }
+    .ratio-labels-row,
+    .comparison-labels-row {
         flex-direction: column;
         align-items: flex-start;
         gap: 0.4rem;

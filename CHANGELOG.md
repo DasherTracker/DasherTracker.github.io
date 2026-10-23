@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.3.0] - 2026-10-23
+### Added
+- Added dedicated Tax Deductions and Expense Intelligence section.
+- Implemented IRS standard mileage write-off calculations at $0.67/mi.
+- Added Mileage vs. Gas expense comparison advantage bar.
+- Added month-by-month IRS tax deduction column in table.
+
 ## [3.2.0] - 2026-10-23
 ### Added
 - Added dedicated Tipping and Order Intelligence Bento section.

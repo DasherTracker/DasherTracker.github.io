@@ -3,14 +3,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dasher Tracker — Real-Time Delivery Analytics</title>
-    <meta name="description" content="Modern real-time delivery earnings, metrics, tipping intelligence, and analytics dashboard for Dashers.">
+    <title>Dasher Tracker — Real-Time Delivery Analytics & Tax Intelligence</title>
+    <meta name="description" content="Modern real-time delivery earnings, metrics, tipping intelligence, tax deductions, and analytics dashboard for Dashers.">
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>⚡</text></svg>">
     <!-- Google Fonts: Plus Jakarta Sans, Outfit, JetBrains Mono -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=3.2.0">
+    <link rel="stylesheet" href="styles.css?v=3.3.0">
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Chart.js for data visualization -->
@@ -150,7 +150,91 @@
             </div>
         </section>
 
-        <!-- 3. SECONDARY FINANCIAL STRIP -->
+        <!-- 3. DEDICATED TAX DEDUCTIONS & EXPENSE INTELLIGENCE SECTION -->
+        <section class="glass-panel deductions-intelligence-panel" id="deductionsSection">
+            <div class="panel-header-row">
+                <div class="panel-title-group">
+                    <h2>Tax Deductions & Expense Intelligence</h2>
+                    <span class="panel-pill-badge amber" id="deductionsRateBadge">IRS Standard Mileage ($0.67/mi)</span>
+                </div>
+            </div>
+
+            <!-- Deductions Cards Grid -->
+            <div class="deductions-cards-grid">
+                <!-- Hero Deduction Card -->
+                <div class="deduction-card highlight-amber">
+                    <div class="card-top-row">
+                        <span class="card-title">Est. IRS Tax Write-Off</span>
+                        <div class="card-icon-badge amber">🧾</div>
+                    </div>
+                    <div class="card-value-display amber" id="cardValTotalDeduction">$0.00</div>
+                    <div class="card-subtext">
+                        <span class="profit-chip positive" id="cardDeductionAdvantageChip">+ $0.00 over gas</span>
+                        <span>Standard Mileage Method</span>
+                    </div>
+                </div>
+
+                <!-- Estimated Cash Tax Savings -->
+                <div class="deduction-card highlight-emerald">
+                    <div class="card-top-row">
+                        <span class="card-title">Estimated Tax Shield</span>
+                        <div class="card-icon-badge emerald">🛡️</div>
+                    </div>
+                    <div class="card-value-display emerald" id="cardValTaxSavings">$0.00</div>
+                    <div class="card-subtext">
+                        <span class="profit-chip positive">~25% Effective Shield</span>
+                        <span>Estimated Cash Saved</span>
+                    </div>
+                </div>
+
+                <!-- Deduction per Order -->
+                <div class="deduction-card">
+                    <div class="card-top-row">
+                        <span class="card-title">Write-Off / Delivery</span>
+                        <div class="card-icon-badge cyan">📍</div>
+                    </div>
+                    <div class="card-value-display cyan" id="cardValDeductionPerOrder">$0.00</div>
+                    <div class="card-subtext">
+                        <span class="profit-chip neutral">Tax Offset per Drop</span>
+                        <span>Avg per Completed Order</span>
+                    </div>
+                </div>
+
+                <!-- Total Tracked Miles -->
+                <div class="deduction-card">
+                    <div class="card-top-row">
+                        <span class="card-title">Business Mileage</span>
+                        <div class="card-icon-badge purple">🚗</div>
+                    </div>
+                    <div class="card-value-display purple" id="cardValDeductionMiles">0 mi</div>
+                    <div class="card-subtext">
+                        <span class="profit-chip neutral" id="cardDeductionRateChip">@ $0.67 / mile</span>
+                        <span>Total Tracked Distance</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mileage Deduction vs. Actual Gas Comparison Bar -->
+            <div class="deductions-comparison-container">
+                <div class="comparison-labels-row">
+                    <span class="comparison-label-deduction">
+                        <span class="comparison-dot amber"></span> Standard Mileage Deduction: <strong id="compDeductionText">$0.00 (0%)</strong>
+                    </span>
+                    <span class="comparison-label-gas">
+                        <span class="comparison-dot rose"></span> Actual Gas Expenses: <strong id="compGasText">$0.00 (0%)</strong>
+                    </span>
+                </div>
+                <div class="comparison-track-bar">
+                    <div class="comparison-segment deduction" id="compSegmentDeduction" style="width: 76%;"></div>
+                    <div class="comparison-segment gas" id="compSegmentGas" style="width: 24%;"></div>
+                </div>
+                <div class="comparison-summary-note" id="compSummaryNote">
+                    💡 <strong>Tax Tip:</strong> Using the IRS standard mileage rate ($0.67/mi) gives you a significantly larger write-off than actual gas receipts alone!
+                </div>
+            </div>
+        </section>
+
+        <!-- 4. SECONDARY FINANCIAL STRIP -->
         <section class="secondary-kpi-grid">
             <div class="mini-kpi-card">
                 <div class="mini-icon-circle emerald">💵</div>
@@ -182,7 +266,7 @@
             </div>
         </section>
 
-        <!-- 4. ANALYTICS VISUALIZER SECTION -->
+        <!-- 5. ANALYTICS VISUALIZER SECTION -->
         <section class="glass-panel">
             <div class="panel-header-row">
                 <div class="panel-title-group">
@@ -202,7 +286,7 @@
             </div>
         </section>
 
-        <!-- 5. PRESTIGE & RATINGS SHOWCASE -->
+        <!-- 6. PRESTIGE & RATINGS SHOWCASE -->
         <section class="prestige-bento-layout">
             <!-- Left: Status Tier Shield Card -->
             <div class="tier-status-card" id="prestigeTierCard">
@@ -244,7 +328,7 @@
             </div>
         </section>
 
-        <!-- 6. MONTHLY DATA TABLE SECTION -->
+        <!-- 7. MONTHLY DATA TABLE SECTION -->
         <section class="glass-panel">
             <div class="panel-header-row">
                 <div class="panel-title-group">
@@ -260,6 +344,7 @@
                             <th>Dash Hours</th>
                             <th>Active Hours</th>
                             <th>Miles</th>
+                            <th>IRS Deduction ($0.67)</th>
                             <th>Deliveries</th>
                             <th>Base Pay</th>
                             <th>Tips</th>
@@ -284,10 +369,10 @@
 
         <!-- FOOTER -->
         <footer class="dashboard-footer">
-            <p>Dasher Tracker <span class="version-badge">v3.2.0</span> • Real-Time Delivery Intelligence Dashboard</p>
+            <p>Dasher Tracker <span class="version-badge">v3.3.0</span> • Real-Time Delivery Intelligence Dashboard</p>
         </footer>
     </main>
 
-    <script src="script.js?v=3.2.0"></script>
+    <script src="script.js?v=3.3.0"></script>
 </body>
 </html>
