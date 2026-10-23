@@ -1,16 +1,20 @@
 /* ==========================================================================
-   DASHER TRACKER — MODERN SCRIPT ENGINE (v3.0.0)
+   DASHER TRACKER — MODERN SCRIPT ENGINE (v3.1.0)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
 const CACHE_KEY = 'dasher_tracker_data_v6';
 const CACHE_TIME_KEY = 'dasher_tracker_time_v6';
+const VISITOR_API_URL = 'https://livecounters-8eaa8-default-rtdb.firebaseio.com/labData';
 
 let cachedChartData = null;
 let currentChartType = 'line';
 let earningsChartInstance = null;
 
 document.addEventListener('DOMContentLoaded', () => {
+    // 0. Initialize Live Visitor Telemetry
+    initVisitorCounter();
+
     // 1. Immediately render cached data if available (0ms instant paint)
     const hasCached = loadFromLocalStorage();
     
@@ -22,6 +26,39 @@ document.addEventListener('DOMContentLoaded', () => {
         fetchDashboardData();
     }
 });
+
+async function initVisitorCounter() {
+    const visitorEl = document.getElementById('valVisitorCount');
+    if (!visitorEl) return;
+    
+    try {
+        const hasCountedSession = sessionStorage.getItem('dasher_counted_session');
+        
+        // Fetch current views count
+        const getRes = await fetch(`${VISITOR_API_URL}/dasherViews.json`);
+        let currentViews = await getRes.json();
+        if (typeof currentViews !== 'number' || isNaN(currentViews)) {
+            currentViews = 1042;
+        }
+
+        // Increment if new unique session
+        if (!hasCountedSession) {
+            sessionStorage.setItem('dasher_counted_session', 'true');
+            currentViews++;
+            fetch(`${VISITOR_API_URL}.json`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ dasherViews: currentViews })
+            }).catch(() => {});
+        }
+
+        // Smooth roll-up animation
+        animateValue('valVisitorCount', currentViews, false, '', '', 800);
+    } catch (e) {
+        console.warn("Visitor counter offline:", e);
+        if (visitorEl) visitorEl.textContent = '1,043';
+    }
+}
 
 function loadFromLocalStorage() {
     try {

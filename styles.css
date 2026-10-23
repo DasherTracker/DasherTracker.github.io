@@ -162,6 +162,31 @@ body {
     animation: pulseGlow 2s infinite ease-in-out;
 }
 
+.telemetry-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.45rem;
+    padding: 0.25rem 0.65rem;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.3);
+    color: var(--cyan-accent);
+    font-size: 0.78rem;
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    font-feature-settings: "tnum" 1;
+    transition: all 0.25s ease;
+}
+
+.telemetry-pill:hover {
+    background: rgba(56, 189, 248, 0.2);
+    border-color: var(--cyan-accent);
+}
+
+.telemetry-icon {
+    font-size: 0.85rem;
+}
+
 .header-controls {
     display: flex;
     align-items: center;

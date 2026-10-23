@@ -1,5 +1,10 @@
 # Changelog
 
+## [3.1.0] - 2026-10-23
+### Added
+- Added real-time visitor telemetry counter in header status strip.
+- Implemented smart session deduplication to prevent view inflation.
+
 ## [3.0.0] - 2026-10-23
 ### Added
 - Brand new Crimson and Obsidian dark Bento Grid redesign.

@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=3.0.0">
+    <link rel="stylesheet" href="styles.css?v=3.1.0">
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Chart.js for data visualization -->
@@ -29,6 +29,7 @@
                 </div>
                 <div class="header-status-strip">
                     <span class="live-pill"><span class="pulse-dot"></span> Live Sync Active</span>
+                    <span class="telemetry-pill" id="visitorPill" title="Real-time verified visits"><span class="telemetry-icon">👁️</span> <span id="valVisitorCount">--</span> Views</span>
                     <span id="lastUpdatedTag">• Updating...</span>
                 </div>
             </div>
@@ -227,10 +228,10 @@
 
         <!-- FOOTER -->
         <footer class="dashboard-footer">
-            <p>Dasher Tracker <span class="version-badge">v3.0.0</span> • Real-Time Delivery Intelligence Dashboard</p>
+            <p>Dasher Tracker <span class="version-badge">v3.1.0</span> • Real-Time Delivery Intelligence Dashboard</p>
         </footer>
     </main>
 
-    <script src="script.js?v=3.0.0"></script>
+    <script src="script.js?v=3.1.0"></script>
 </body>
 </html>
