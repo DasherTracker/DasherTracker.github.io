@@ -1,5 +1,12 @@
 # Changelog
 
+## [3.6.0] - 2026-10-23
+### Fixed
+- Fixed live synchronization when Google Sheet expenses are reset.
+- Removed hardcoded fallback items from the expense ledger.
+- Added sleek empty state display for cleared expense lists.
+- Ensured instant zero balance updates on sheet reset.
+
 ## [3.5.2] - 2026-10-23
 ### Added
 - Moved category dropdown buttons to Column B in Expenses sheet.

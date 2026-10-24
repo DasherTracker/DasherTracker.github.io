@@ -1,11 +1,11 @@
 /* ==========================================================================
-   DASHER TRACKER — MODERN SCRIPT ENGINE (v3.5.2)
+   DASHER TRACKER — MODERN SCRIPT ENGINE (v3.6.0)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
-const EXPENSES_API_URL = 'https://script.google.com/macros/s/AKfycbyWb_ArSnsZVeUrDAOPPTIYsCQ3l0BM226l7UM--HsHnBTtvGly2UcP9VgKRd42dOo/exec?action=getExpenses';
-const CACHE_KEY = 'dasher_tracker_data_v12';
-const CACHE_TIME_KEY = 'dasher_tracker_time_v12';
+const EXPENSES_API_URL = 'https://script.google.com/macros/s/AKfycbyM9FIZqUIfFzz0RoQMTc7_IAJDxhCjAb8vw4mm2g3tRovIylZyGLs4qZ2L3LPR1HE/exec?action=getExpenses';
+const CACHE_KEY = 'dasher_tracker_data_v13';
+const CACHE_TIME_KEY = 'dasher_tracker_time_v13';
 const VISITOR_API_URL = 'https://livecounters-8eaa8-default-rtdb.firebaseio.com/labData';
 const IRS_MILEAGE_RATE = 0.67; // 2024-2026 IRS Standard Business Mileage Rate ($0.67/mi)
 
@@ -94,9 +94,10 @@ async function initVisitorCounter() {
 
 async function fetchLiveExpenses() {
     try {
-        const res = await fetch(EXPENSES_API_URL);
+        const fetchUrl = `${EXPENSES_API_URL}&_t=${Date.now()}`;
+        const res = await fetch(fetchUrl);
         const json = await res.json();
-        if (json && json.success && Array.isArray(json.items) && json.items.length > 0) {
+        if (json && json.success && Array.isArray(json.items)) {
             liveExpensesData = json.items;
             try {
                 localStorage.setItem('dasher_live_expenses_cache', JSON.stringify(json.items));
@@ -544,10 +545,24 @@ function renderDeductionsIntelligence(totalMiles, totalGas, totalDeliveries) {
 /* ==========================================================================
    ITEMIZED GEAR, SUPPLIES & VEHICLE UPKEEP LEDGER RENDERER
    ========================================================================== */
-function renderLedgerItemList(containerId, items, defaultIcon) {
+function renderLedgerItemList(containerId, items, defaultIcon, emptyMessage = 'items') {
     const container = document.getElementById(containerId);
     if (!container) return;
     container.innerHTML = '';
+
+    if (!items || items.length === 0) {
+        container.innerHTML = `
+            <div class="ledger-empty-state">
+                <span class="empty-icon">${defaultIcon}</span>
+                <div class="empty-text">
+                    <strong>No ${emptyMessage} logged yet</strong>
+                    <p>Add rows in your Google Sheet's <strong>Expenses</strong> tab to see them appear here in real time.</p>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
     items.forEach(item => {
         const row = document.createElement('div');
         row.className = 'ledger-item-row';
@@ -555,7 +570,7 @@ function renderLedgerItemList(containerId, items, defaultIcon) {
             <div class="ledger-item-left">
                 <span class="ledger-item-icon">${item.icon || defaultIcon}</span>
                 <div class="ledger-item-info">
-                    <span class="ledger-item-name">${escapeHtml(item.name)}</span>
+                    <span class="ledger-item-name">${escapeHtml(item.name || 'Expense Item')}</span>
                     <span class="ledger-item-desc">${escapeHtml(item.desc || '')}</span>
                 </div>
             </div>
@@ -569,24 +584,22 @@ function renderItemizedLedger(totalEarnings, totalGas) {
     cachedSummaryEarnings = totalEarnings;
     cachedSummaryGas = totalGas;
 
-    let gearItems = DASHER_GEAR_ITEMS;
-    let maintItems = VEHICLE_MAINTENANCE_ITEMS;
+    let gearItems = [];
+    let maintItems = [];
 
-    if (liveExpensesData && liveExpensesData.length > 0) {
-        const customGear = liveExpensesData.filter(i => {
+    if (Array.isArray(liveExpensesData)) {
+        gearItems = liveExpensesData.filter(i => {
             const c = (i.category || '').toLowerCase();
             return c.includes('gear') || c.includes('suppl') || (!c.includes('maint') && !c.includes('repair') && !c.includes('vehic') && !c.includes('tire') && !c.includes('oil') && !c.includes('brake'));
         });
-        const customMaint = liveExpensesData.filter(i => {
+        maintItems = liveExpensesData.filter(i => {
             const c = (i.category || '').toLowerCase();
             return c.includes('maint') || c.includes('repair') || c.includes('vehic') || c.includes('auto') || c.includes('tire') || c.includes('oil') || c.includes('brake');
         });
-        if (customGear.length > 0) gearItems = customGear;
-        if (customMaint.length > 0) maintItems = customMaint;
     }
 
-    renderLedgerItemList('gearItemsList', gearItems, '🎒');
-    renderLedgerItemList('maintItemsList', maintItems, '🛞');
+    renderLedgerItemList('gearItemsList', gearItems, '🎒', 'gear or delivery supplies');
+    renderLedgerItemList('maintItemsList', maintItems, '🛞', 'maintenance or upkeep expenses');
 
     const gearSubtotal = gearItems.reduce((sum, item) => sum + (parseFloat(item.cost) || 0), 0);
     const maintSubtotal = maintItems.reduce((sum, item) => sum + (parseFloat(item.cost) || 0), 0);
