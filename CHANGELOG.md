@@ -1,5 +1,13 @@
 # Changelog
 
+## [4.0.0] - 2026-11-04
+### Added
+- Upgraded site into Multi-Year Data Vault and HQ.
+- Locked Add Data menu behind Google Admin sign-in.
+- Added 4-in-1 Shift, Gas, Expense, and Ratings modal.
+- Added Misc Pay dropdown with Reimbursement, Bonus, and notes.
+- Added clickable monthly Shift and Gas drill-down drawers.
+
 ## [3.6.0] - 2026-10-23
 ### Fixed
 - Fixed live synchronization when Google Sheet expenses are reset.

@@ -1,11 +1,16 @@
 /* ==========================================================================
-   DASHER TRACKER — MODERN SCRIPT ENGINE (v3.6.0)
+   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v4.0.0)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
-const EXPENSES_API_URL = 'https://script.google.com/macros/s/AKfycbyM9FIZqUIfFzz0RoQMTc7_IAJDxhCjAb8vw4mm2g3tRovIylZyGLs4qZ2L3LPR1HE/exec?action=getExpenses';
-const CACHE_KEY = 'dasher_tracker_data_v13';
-const CACHE_TIME_KEY = 'dasher_tracker_time_v13';
+const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbyGWb4TxkVa3Sw6UAIiJMv-TZTUtdmIak6dF8bxRldTWVG15vEsFBNXuJmfwna0pPU/exec';
+const EXPENSES_API_URL = `${API_BASE_URL}?action=getExpenses`;
+const VAULT_API_URL = `${API_BASE_URL}?action=getVaultData`;
+const CACHE_KEY = 'dasher_tracker_data_v14';
+const CACHE_TIME_KEY = 'dasher_tracker_time_v14';
+const VAULT_CACHE_KEY = 'dasher_tracker_vault_v14';
+const ADMIN_AUTH_STORAGE_KEY = 'dasher_hq_admin_auth_v1';
+const ALLOWED_ADMIN_EMAILS = ['briandivacox@gmail.com'];
 const VISITOR_API_URL = 'https://livecounters-8eaa8-default-rtdb.firebaseio.com/labData';
 const IRS_MILEAGE_RATE = 0.67; // 2024-2026 IRS Standard Business Mileage Rate ($0.67/mi)
 
@@ -25,12 +30,37 @@ const VEHICLE_MAINTENANCE_ITEMS = [
     { name: "Silicone Heavy Weather Wiper Blades", desc: "All-weather streak-free beam wiper blade pair", cost: 35.00, icon: "🌧️" }
 ];
 
+const MONTH_ORDER = [
+    'January', 'February', 'March', 'April', 'May', 'June',
+    'July', 'August', 'September', 'October', 'November', 'December'
+];
+
 let cachedChartData = null;
 let currentChartType = 'line';
 let earningsChartInstance = null;
 let liveExpensesData = null;
 let cachedSummaryEarnings = null;
 let cachedSummaryGas = null;
+let cachedRawCsvData = null;
+let liveVaultData = { years: [2026], shifts: [], gas: [], expenses: [] };
+let currentVaultYear = 'all';
+let expandedMonths = {};
+let currentAdminUser = null;
+let latestRatingsState = {
+    lifetime: 1114,
+    customerRating: 5.0,
+    overallRating: 100,
+    stars5: 100,
+    stars4: 0,
+    stars3: 0,
+    stars2: 0,
+    stars1: 0,
+    communication: 18,
+    orderHandling: 19,
+    instructions: 19,
+    friendliness: 20,
+    aboveBeyond: 16
+};
 
 function escapeHtml(str) {
     if (!str) return '';
@@ -43,9 +73,11 @@ function escapeHtml(str) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    // 0. Initialize Live Visitor Telemetry & Fetch Expenses
+    // 0. Initialize Admin Auth State, Live Visitor Telemetry & Fetch Vault + Expenses
+    initAdminAuthState();
     initVisitorCounter();
     fetchLiveExpenses();
+    fetchLiveVaultData();
 
     // 1. Immediately render cached data if available (0ms instant paint)
     const hasCached = loadFromLocalStorage();
@@ -117,16 +149,62 @@ async function fetchLiveExpenses() {
     }
 }
 
+async function fetchLiveVaultData() {
+    try {
+        const fetchUrl = `${VAULT_API_URL}&_t=${Date.now()}`;
+        const res = await fetch(fetchUrl);
+        const json = await res.json();
+        if (json && json.success) {
+            liveVaultData = {
+                years: Array.isArray(json.years) && json.years.length > 0 ? json.years : [2026],
+                shifts: Array.isArray(json.shifts) ? json.shifts : [],
+                gas: Array.isArray(json.gas) ? json.gas : [],
+                expenses: Array.isArray(json.expenses) ? json.expenses : []
+            };
+            if (Array.isArray(json.expenses)) {
+                liveExpensesData = json.expenses;
+                try {
+                    localStorage.setItem('dasher_live_expenses_cache', JSON.stringify(json.expenses));
+                } catch (e) {}
+            }
+            try {
+                localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData));
+            } catch (e) {}
+            renderVaultYearSelectorPills();
+            if (cachedRawCsvData) {
+                processData(cachedRawCsvData);
+            }
+        }
+    } catch (e) {
+        console.warn("Could not load live Vault data, checking offline cache:", e);
+        const offlineVault = localStorage.getItem(VAULT_CACHE_KEY);
+        if (offlineVault) {
+            try {
+                liveVaultData = JSON.parse(offlineVault);
+                renderVaultYearSelectorPills();
+            } catch (err) {}
+        }
+    }
+}
+
 function loadFromLocalStorage() {
     try {
         const offlineExp = localStorage.getItem('dasher_live_expenses_cache');
         if (offlineExp) {
             try { liveExpensesData = JSON.parse(offlineExp); } catch (e) {}
         }
+        const offlineVault = localStorage.getItem(VAULT_CACHE_KEY);
+        if (offlineVault) {
+            try {
+                liveVaultData = JSON.parse(offlineVault);
+                renderVaultYearSelectorPills();
+            } catch (e) {}
+        }
         const cachedRaw = localStorage.getItem(CACHE_KEY);
         if (cachedRaw) {
             const data = JSON.parse(cachedRaw);
             if (data && data.length > 0) {
+                cachedRawCsvData = data;
                 processData(data);
                 updateLastUpdatedTag(parseInt(localStorage.getItem(CACHE_TIME_KEY) || Date.now()));
                 return true;
@@ -149,6 +227,7 @@ async function fetchDashboardData() {
     const refreshBtn = document.getElementById('refreshBtn');
     if (refreshBtn) refreshBtn.classList.add('loading');
     fetchLiveExpenses();
+    fetchLiveVaultData();
     
     try {
         const fetchUrl = `${CSV_URL}&_cb=${Date.now()}`;
@@ -158,6 +237,7 @@ async function fetchDashboardData() {
             skipEmptyLines: false,
             complete: function(results) {
                 if (results.data && results.data.length > 0) {
+                    cachedRawCsvData = results.data;
                     try {
                         localStorage.setItem(CACHE_KEY, JSON.stringify(results.data));
                         localStorage.setItem(CACHE_TIME_KEY, Date.now().toString());
@@ -705,6 +785,15 @@ function renderRatings(headers, values) {
     const threeStars = parseInt(map['3 stars'] || '0') || 0;
     const twoStars = parseInt(map['2 stars'] || '0') || 0;
     const oneStar = parseInt(map["1 star's"] || map['1 star'] || '0') || 0;
+
+    latestRatingsState.lifetime = parseInt(String(lifetime).replace(/[^0-9]/g, '')) || 1114;
+    latestRatingsState.customerRating = parseFloat(customerRating) || 5.0;
+    latestRatingsState.overallRating = parseInt(String(overallRating).replace(/[^0-9]/g, '')) || 100;
+    latestRatingsState.stars5 = fiveStars;
+    latestRatingsState.stars4 = fourStars;
+    latestRatingsState.stars3 = threeStars;
+    latestRatingsState.stars2 = twoStars;
+    latestRatingsState.stars1 = oneStar;
     
     const totalRated = (fiveStars + fourStars + threeStars + twoStars + oneStar) || 1;
 
@@ -753,13 +842,14 @@ function renderFeedback(headers, values) {
 
         const title = formatTitle(rawTitle);
         const lower = title.toLowerCase();
+        const numVal = parseInt(val.replace(/[^0-9]/g, '')) || 0;
         
         let icon = '⭐';
-        if (lower.includes('communication')) icon = '💬';
-        else if (lower.includes('handling')) icon = '🛍️';
-        else if (lower.includes('instructions')) icon = '📝';
-        else if (lower.includes('friendliness')) icon = '😊';
-        else if (lower.includes('above')) icon = '🚀';
+        if (lower.includes('communication')) { icon = '💬'; latestRatingsState.communication = numVal; }
+        else if (lower.includes('handling')) { icon = '🛍️'; latestRatingsState.orderHandling = numVal; }
+        else if (lower.includes('instructions')) { icon = '📝'; latestRatingsState.instructions = numVal; }
+        else if (lower.includes('friendliness')) { icon = '😊'; latestRatingsState.friendliness = numVal; }
+        else if (lower.includes('above')) { icon = '🚀'; latestRatingsState.aboveBeyond = numVal; }
 
         html += `
             <div class="feedback-chip">
@@ -775,8 +865,148 @@ function renderFeedback(headers, values) {
 }
 
 /* ==========================================================================
-   MONTHLY DATA TABLE
+   MONTHLY DATA TABLE & CLICK-TO-EXPAND VAULT DRILL-DOWN
    ========================================================================== */
+function getVaultRecordsForMonth(monthName) {
+    const mLower = String(monthName || '').toLowerCase().trim();
+    const shifts = (liveVaultData.shifts || []).filter(s => {
+        const matchM = String(s.month || '').toLowerCase().trim() === mLower;
+        const matchY = (currentVaultYear === 'all') || (Number(s.year) === Number(currentVaultYear));
+        return matchM && matchY;
+    });
+    const gas = (liveVaultData.gas || []).filter(g => {
+        const matchM = String(g.month || '').toLowerCase().trim() === mLower;
+        const matchY = (currentVaultYear === 'all') || (Number(g.year) === Number(currentVaultYear));
+        return matchM && matchY;
+    });
+    return { shifts, gas };
+}
+
+function toggleMonthDrilldown(monthName) {
+    const key = String(monthName || '').trim();
+    expandedMonths[key] = !expandedMonths[key];
+    const rowEl = document.querySelector(`tr.month-clickable-row[data-month="${key}"]`);
+    const drawerEl = document.getElementById(`drilldown-${key}`);
+    if (rowEl && drawerEl) {
+        if (expandedMonths[key]) {
+            rowEl.classList.add('expanded');
+            drawerEl.style.display = 'table-row';
+        } else {
+            rowEl.classList.remove('expanded');
+            drawerEl.style.display = 'none';
+        }
+    }
+}
+
+function buildDrilldownDrawerHtml(monthName) {
+    const { shifts, gas } = getVaultRecordsForMonth(monthName);
+
+    let shiftsHtml = '';
+    if (shifts.length === 0) {
+        shiftsHtml = `<div style="padding:0.75rem; color:#64748b; font-size:0.8rem;">No individual shifts logged in Vault for ${escapeHtml(monthName)} yet. Use <strong>+ Log Shift / Add Data</strong> to add one!</div>`;
+    } else {
+        shiftsHtml = `
+            <div class="drilldown-mini-table-wrap">
+                <table class="drilldown-mini-table">
+                    <thead>
+                        <tr>
+                            <th>Start</th>
+                            <th>End</th>
+                            <th>Hrs</th>
+                            <th>Active</th>
+                            <th>Miles</th>
+                            <th>Deliv</th>
+                            <th>Base</th>
+                            <th>Tips</th>
+                            <th>Misc / Bonus</th>
+                            <th>Total</th>
+                            <th>Rate</th>
+                            <th>Misc Reason / Notes</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${shifts.map(s => {
+                            const miscBadge = s.miscCategory ? `<span class="misc-pill-badge">${escapeHtml(s.miscCategory)}</span>` : '';
+                            const noteText = s.miscNote ? escapeHtml(s.miscNote) : (s.miscAmount > 0 ? 'Bonus / Extra Pay' : '—');
+                            return `
+                                <tr>
+                                    <td>${escapeHtml(s.start)}</td>
+                                    <td>${escapeHtml(s.end)}</td>
+                                    <td>${escapeHtml(s.hours)}</td>
+                                    <td>${escapeHtml(s.activeHours)}</td>
+                                    <td>${Number(s.miles || 0).toFixed(1)}</td>
+                                    <td>${s.deliveries}</td>
+                                    <td>$${Number(s.basePay || 0).toFixed(2)}</td>
+                                    <td class="positive-val">$${Number((s.tips || 0) + (s.cashTips || 0)).toFixed(2)}</td>
+                                    <td style="color:#fbbf24;">$${Number(s.miscAmount || 0).toFixed(2)}</td>
+                                    <td class="positive-val"><strong>$${Number(s.total || 0).toFixed(2)}</strong></td>
+                                    <td>$${Number(s.hourlyRate || 0).toFixed(2)}/hr</td>
+                                    <td>${miscBadge}${noteText}</td>
+                                </tr>
+                            `;
+                        }).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    let gasHtml = '';
+    if (gas.length === 0) {
+        gasHtml = `<div style="padding:0.75rem; color:#64748b; font-size:0.8rem;">No gas fill-ups logged in Vault for ${escapeHtml(monthName)}.</div>`;
+    } else {
+        gasHtml = `
+            <div class="drilldown-mini-table-wrap">
+                <table class="drilldown-mini-table">
+                    <thead>
+                        <tr>
+                            <th>Date</th>
+                            <th>Station (Where)</th>
+                            <th>Price/Gal</th>
+                            <th>Gallons</th>
+                            <th>Total $</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${gas.map(g => `
+                            <tr>
+                                <td>${escapeHtml(g.date)}</td>
+                                <td><strong>${escapeHtml(g.station)}</strong></td>
+                                <td>$${Number(g.price || 0).toFixed(2)}</td>
+                                <td>${Number(g.gallons || 0).toFixed(3)}</td>
+                                <td class="gas-val"><strong>$${Number(g.total || 0).toFixed(2)}</strong></td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        `;
+    }
+
+    return `
+        <tr id="drilldown-${escapeHtml(monthName)}" class="month-drilldown-row" style="display: ${expandedMonths[monthName] ? 'table-row' : 'none'};">
+            <td colspan="15" class="month-drilldown-cell">
+                <div class="drilldown-drawer-grid">
+                    <div class="drilldown-subcard">
+                        <div class="drilldown-subcard-header">
+                            <h4>🚗 ${escapeHtml(monthName)} Shift Vault Log</h4>
+                            <span class="drilldown-count-pill">${shifts.length} Shifts</span>
+                        </div>
+                        ${shiftsHtml}
+                    </div>
+                    <div class="drilldown-subcard">
+                        <div class="drilldown-subcard-header">
+                            <h4>⛽ ${escapeHtml(monthName)} Gas Fill-Ups</h4>
+                            <span class="drilldown-count-pill">${gas.length} Fill-Ups</span>
+                        </div>
+                        ${gasHtml}
+                    </div>
+                </div>
+            </td>
+        </tr>
+    `;
+}
+
 function renderTable(rows) {
     const tbody = document.getElementById('dashTableBody');
     if (!tbody) return;
@@ -798,9 +1028,13 @@ function renderTable(rows) {
             monthBadge += `<span class="badge-tag badge-best-rate">⚡ Peak Rate</span>`;
         }
 
+        const isExp = !!expandedMonths[r.month];
+        const { shifts } = getVaultRecordsForMonth(r.month);
+        const shiftCountTag = shifts.length > 0 ? `<span class="badge-tag" style="background:rgba(56,189,248,0.14);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);">${shifts.length} shifts</span>` : '';
+
         html += `
-            <tr>
-                <td><strong>${r.month}</strong>${monthBadge}</td>
+            <tr class="month-clickable-row ${isExp ? 'expanded' : ''}" data-month="${escapeHtml(r.month)}" onclick="toggleMonthDrilldown('${escapeHtml(r.month)}')">
+                <td><span class="month-expand-chevron">▶</span><strong>${r.month}</strong>${shiftCountTag}${monthBadge}</td>
                 <td>${r.hours}</td>
                 <td>${r.activeHours}</td>
                 <td>${r.miles}</td>
@@ -816,6 +1050,7 @@ function renderTable(rows) {
                 <td>${r.noTipping}</td>
                 <td>${r.pctNoTipping}</td>
             </tr>
+            ${buildDrilldownDrawerHtml(r.month)}
         `;
     });
     
@@ -1156,3 +1391,732 @@ function renderChart(type = 'line') {
         console.error("Error building Chart:", chartErr);
     }
 }
+
+/* ==========================================================================
+   DASHER TRACKER HQ (v4.0.0) — MULTI-YEAR VAULT, ADMIN GATE & MODAL LOGIC
+   ========================================================================== */
+function showHqToast(message, isError = false) {
+    const container = document.getElementById('hqToastContainer');
+    if (!container) return;
+    const toast = document.createElement('div');
+    toast.className = `hq-toast ${isError ? 'error' : ''}`;
+    toast.innerHTML = `<span>${isError ? '⚠️' : '✅'}</span><span>${escapeHtml(message)}</span>`;
+    container.appendChild(toast);
+    setTimeout(() => {
+        if (toast.parentNode) toast.parentNode.removeChild(toast);
+    }, 4500);
+}
+
+/* --- 1. Multi-Year Vault Selector --- */
+function renderVaultYearSelectorPills() {
+    const pillsContainer = document.getElementById('vaultYearPills');
+    if (!pillsContainer) return;
+
+    const yearSet = new Set([2026, 2027]);
+    if (Array.isArray(liveVaultData.years)) {
+        liveVaultData.years.forEach(y => { if (y) yearSet.add(Number(y)); });
+    }
+    (liveVaultData.shifts || []).forEach(s => { if (s.year) yearSet.add(Number(s.year)); });
+    (liveVaultData.gas || []).forEach(g => { if (g.year) yearSet.add(Number(g.year)); });
+
+    const sortedYears = Array.from(yearSet).sort((a, b) => a - b);
+
+    let html = `<button type="button" class="vault-year-btn ${currentVaultYear === 'all' ? 'active' : ''}" data-year="all" onclick="selectVaultYear('all')">All-Time</button>`;
+    sortedYears.forEach(yr => {
+        const isActive = Number(currentVaultYear) === Number(yr);
+        html += `<button type="button" class="vault-year-btn ${isActive ? 'active' : ''}" data-year="${yr}" onclick="selectVaultYear(${yr})">${yr}</button>`;
+    });
+    pillsContainer.innerHTML = html;
+}
+
+function formatHrsMinsFromFloat(hrsFloat) {
+    const totalMins = Math.round((hrsFloat || 0) * 60);
+    const h = Math.floor(totalMins / 60);
+    const m = totalMins % 60;
+    return `${h}:${m < 10 ? '0' + m : m}`;
+}
+
+function selectVaultYear(yearVal) {
+    currentVaultYear = yearVal === 'all' ? 'all' : Number(yearVal);
+    renderVaultYearSelectorPills();
+
+    if (currentVaultYear === 'all' || currentVaultYear === 2026) {
+        if (cachedRawCsvData) {
+            processData(cachedRawCsvData);
+        }
+        return;
+    }
+
+    // Dynamic Future Year Vault Aggregation (e.g., 2027, 2028...)
+    renderVaultYearFromRecords(currentVaultYear);
+}
+
+function renderVaultYearFromRecords(targetYear) {
+    const yearShifts = (liveVaultData.shifts || []).filter(s => Number(s.year) === Number(targetYear));
+    const yearGas = (liveVaultData.gas || []).filter(g => Number(g.year) === Number(targetYear));
+
+    let totalEarnings = 0;
+    let totalDeliveries = 0;
+    let totalGas = 0;
+    let totalBasePay = 0;
+    let totalTips = 0;
+    let totalCashTips = 0;
+    let totalTaxes = 0;
+    let totalMiles = 0;
+    let totalDashHoursNum = 0;
+    let totalActiveHoursNum = 0;
+    let totalNoTipping = 0;
+    let activeMonthsCount = 0;
+
+    const monthlyRows = [];
+    const chartLabels = [];
+    const chartEarnings = [];
+    const chartGas = [];
+    const chartEfficiency = [];
+    const chartTippedOrders = [];
+    const chartNoTipOrders = [];
+
+    MONTH_ORDER.forEach(monthName => {
+        const mShifts = yearShifts.filter(s => String(s.month || '').toLowerCase() === monthName.toLowerCase());
+        const mGas = yearGas.filter(g => String(g.month || '').toLowerCase() === monthName.toLowerCase());
+
+        let mHrs = 0;
+        let mActHrs = 0;
+        let mMiles = 0;
+        let mDeliv = 0;
+        let mBase = 0;
+        let mTips = 0;
+        let mCash = 0;
+        let mTotal = 0;
+        let mTaxes = 0;
+        let mNoTip = 0;
+
+        mShifts.forEach(s => {
+            mHrs += parseHoursToNumber(String(s.hours || '0'));
+            mActHrs += parseHoursToNumber(String(s.activeHours || '0'));
+            mMiles += Number(s.miles || 0);
+            mDeliv += Number(s.deliveries || 0);
+            mBase += Number(s.basePay || 0);
+            mTips += Number(s.tips || 0);
+            mCash += Number(s.cashTips || 0);
+            mTotal += Number(s.total || 0);
+            mTaxes += Number(s.taxes || 0);
+            mNoTip += Number(s.noTips || 0);
+        });
+
+        const mGasVal = mGas.reduce((sum, g) => sum + Number(g.total || 0), 0);
+        const mRate = mActHrs > 0 ? (mTotal / mActHrs) : (mHrs > 0 ? (mTotal / mHrs) : 0);
+        const mTipped = Math.max(0, mDeliv - mNoTip);
+        const pctNoTip = mDeliv > 0 ? ((mNoTip / mDeliv) * 100).toFixed(2) + '%' : '0.00%';
+
+        totalEarnings += mTotal;
+        totalDeliveries += mDeliv;
+        totalGas += mGasVal;
+        totalBasePay += mBase;
+        totalTips += mTips;
+        totalCashTips += mCash;
+        totalTaxes += mTaxes;
+        totalMiles += mMiles;
+        totalDashHoursNum += mHrs;
+        totalActiveHoursNum += mActHrs;
+        totalNoTipping += mNoTip;
+
+        if (mTotal > 0 || mDeliv > 0 || mGasVal > 0) {
+            activeMonthsCount++;
+            chartLabels.push(monthName);
+            chartEarnings.push(mTotal);
+            chartGas.push(mGasVal);
+            chartEfficiency.push(mMiles > 0 ? parseFloat((mTotal / mMiles).toFixed(2)) : 0);
+            chartTippedOrders.push(mTipped);
+            chartNoTipOrders.push(mNoTip);
+        }
+
+        monthlyRows.push({
+            month: monthName,
+            hours: formatHrsMinsFromFloat(mHrs),
+            activeHours: formatHrsMinsFromFloat(mActHrs),
+            miles: mMiles.toFixed(1),
+            deliveries: mDeliv,
+            basePay: `$${mBase.toFixed(2)}`,
+            tips: `$${mTips.toFixed(2)}`,
+            cashTips: `$${mCash.toFixed(2)}`,
+            taxes: `$${mTaxes.toFixed(2)}`,
+            gas: `$${mGasVal.toFixed(2)}`,
+            totalPay: `$${mTotal.toFixed(2)}`,
+            hourlyRate: `$${mRate.toFixed(2)}`,
+            noTipping: String(mNoTip),
+            pctNoTipping: pctNoTip,
+            totalPayNum: mTotal,
+            gasNum: mGasVal,
+            hourlyRateNum: mRate,
+            milesNum: mMiles,
+            noTipCount: mNoTip,
+            tippedCount: mTipped
+        });
+    });
+
+    cachedChartData = {
+        labels: chartLabels.length > 0 ? chartLabels : ['Jan', 'Feb', 'Mar'],
+        earnings: chartEarnings.length > 0 ? chartEarnings : [0, 0, 0],
+        gas: chartGas.length > 0 ? chartGas : [0, 0, 0],
+        efficiency: chartEfficiency.length > 0 ? chartEfficiency : [0, 0, 0],
+        tippedOrders: chartTippedOrders.length > 0 ? chartTippedOrders : [0, 0, 0],
+        noTipOrders: chartNoTipOrders.length > 0 ? chartNoTipOrders : [0, 0, 0],
+        breakdown: {
+            basePay: totalBasePay,
+            tips: totalTips,
+            cashTips: totalCashTips,
+            gas: totalGas,
+            taxes: totalTaxes
+        }
+    };
+
+    const syntheticTotalRow = [
+        `${targetYear} Total`,
+        formatHrsMinsFromFloat(totalDashHoursNum),
+        formatHrsMinsFromFloat(totalActiveHoursNum),
+        totalMiles.toFixed(1),
+        String(totalDeliveries),
+        `$${totalBasePay.toFixed(2)}`,
+        `$${totalTips.toFixed(2)}`,
+        `$${totalCashTips.toFixed(2)}`,
+        `$${totalTaxes.toFixed(2)}`,
+        `$${totalEarnings.toFixed(2)}`,
+        `$${(totalDashHoursNum > 0 ? (totalEarnings / totalDashHoursNum) : 0).toFixed(2)}`,
+        String(totalNoTipping),
+        totalDeliveries > 0 ? `${((totalNoTipping / totalDeliveries) * 100).toFixed(2)}%` : '0.00%',
+        `$${totalGas.toFixed(2)}`
+    ];
+
+    renderExecutiveBento(totalEarnings, totalGas, totalDashHoursNum, totalMiles);
+    renderTippingIntelligence(totalDeliveries, totalNoTipping, totalTips + totalCashTips, totalEarnings);
+    renderDeductionsIntelligence(totalMiles, totalGas, totalDeliveries);
+    renderItemizedLedger(totalEarnings, totalGas);
+    renderSecondaryKpis(totalEarnings, totalBasePay, totalTips + totalCashTips, totalGas);
+    renderChart(currentChartType);
+    renderTable(monthlyRows);
+    renderTotalRow(syntheticTotalRow, totalMiles);
+
+    const countBadge = document.getElementById('tableMonthCountBadge');
+    if (countBadge) countBadge.textContent = `${targetYear} Vault • ${activeMonthsCount} Active Months`;
+}
+
+/* --- 2. Google Account Admin Security Gate --- */
+function isAuthorizedAdminEmail(email) {
+    if (!email) return false;
+    return ALLOWED_ADMIN_EMAILS.includes(String(email).toLowerCase().trim());
+}
+
+function initAdminAuthState() {
+    try {
+        const saved = localStorage.getItem(ADMIN_AUTH_STORAGE_KEY);
+        if (saved) {
+            const parsed = JSON.parse(saved);
+            if (parsed && isAuthorizedAdminEmail(parsed.email)) {
+                applyAdminUnlockedState(parsed.email, false);
+                return;
+            }
+        }
+    } catch (e) {}
+    applyAdminLockedState();
+}
+
+function applyAdminUnlockedState(email, showToastFlag = true) {
+    currentAdminUser = { email: String(email).toLowerCase().trim(), verifiedAt: Date.now() };
+    try {
+        localStorage.setItem(ADMIN_AUTH_STORAGE_KEY, JSON.stringify(currentAdminUser));
+    } catch (e) {}
+
+    const lockBtn = document.getElementById('adminLockBtn');
+    const unlockedWrap = document.getElementById('adminUnlockedControls');
+    const emailLabel = document.getElementById('adminVerifiedEmailLabel');
+
+    if (lockBtn) lockBtn.style.display = 'none';
+    if (unlockedWrap) unlockedWrap.style.display = 'flex';
+    if (emailLabel) emailLabel.textContent = `🔓 Admin Verified • ${currentAdminUser.email}`;
+
+    closeAdminAuthModal();
+    if (showToastFlag) {
+        showHqToast(`Admin HQ Unlocked (${currentAdminUser.email})`);
+    }
+}
+
+function applyAdminLockedState() {
+    currentAdminUser = null;
+    try {
+        localStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
+    } catch (e) {}
+
+    const lockBtn = document.getElementById('adminLockBtn');
+    const unlockedWrap = document.getElementById('adminUnlockedControls');
+    if (lockBtn) lockBtn.style.display = 'inline-flex';
+    if (unlockedWrap) unlockedWrap.style.display = 'none';
+}
+
+function signOutAdmin() {
+    applyAdminLockedState();
+    closeAddDataModal();
+    showHqToast('Admin HQ Locked');
+}
+
+function openAdminAuthModal() {
+    const overlay = document.getElementById('adminAuthModalOverlay');
+    const errEl = document.getElementById('adminAuthErrorMsg');
+    const emailInput = document.getElementById('adminGoogleEmailInput');
+    if (errEl) errEl.style.display = 'none';
+    if (overlay) overlay.style.display = 'flex';
+    if (emailInput) {
+        emailInput.value = '';
+        setTimeout(() => emailInput.focus(), 50);
+    }
+}
+
+function closeAdminAuthModal() {
+    const overlay = document.getElementById('adminAuthModalOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+function handleAdminGoogleSignIn(event) {
+    if (event) event.preventDefault();
+    const emailInput = document.getElementById('adminGoogleEmailInput');
+    const errEl = document.getElementById('adminAuthErrorMsg');
+    const email = (emailInput ? emailInput.value : '').trim().toLowerCase();
+
+    if (!isAuthorizedAdminEmail(email)) {
+        if (errEl) {
+            errEl.textContent = `🚫 Access Denied: "${email || 'Unknown'}" is not authorized. Only briandivacox@gmail.com can unlock Admin HQ.`;
+            errEl.style.display = 'block';
+        }
+        return;
+    }
+
+    applyAdminUnlockedState(email, true);
+}
+
+/* --- 3. + Add Data to Vault Modal & Live Calculators --- */
+function openAddDataModal(defaultTab = 'shift') {
+    if (!currentAdminUser || !isAuthorizedAdminEmail(currentAdminUser.email)) {
+        openAdminAuthModal();
+        return;
+    }
+
+    const overlay = document.getElementById('addDataModalOverlay');
+    if (overlay) overlay.style.display = 'flex';
+
+    // Pre-fill defaults
+    const now = new Date();
+    const tzOffsetMs = now.getTimezoneOffset() * 60000;
+    const localIso = new Date(now.getTime() - tzOffsetMs).toISOString().slice(0, 16);
+    const localDate = localIso.slice(0, 10);
+
+    const startInput = document.getElementById('shiftStartInput');
+    const endInput = document.getElementById('shiftEndInput');
+    if (startInput && !startInput.value) startInput.value = localIso;
+    if (endInput && !endInput.value) endInput.value = localIso;
+
+    const gasDate = document.getElementById('gasDateInput');
+    if (gasDate && !gasDate.value) gasDate.value = localDate;
+
+    const expDate = document.getElementById('expDateInput');
+    if (expDate && !expDate.value) expDate.value = localDate;
+
+    prefillRatingsFormInputs();
+    switchAddDataTab(defaultTab);
+    recalcShiftPreview();
+}
+
+function closeAddDataModal() {
+    const overlay = document.getElementById('addDataModalOverlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+function switchAddDataTab(tabName) {
+    const tabs = ['shift', 'gas', 'expense', 'ratings'];
+    tabs.forEach(t => {
+        const cap = t.charAt(0).toUpperCase() + t.slice(1);
+        const btn = document.getElementById(`hqTabBtn${cap}`);
+        const pane = document.getElementById(`hqForm${cap}`);
+        if (btn) {
+            if (t === tabName) btn.classList.add('active');
+            else btn.classList.remove('active');
+        }
+        if (pane) {
+            pane.style.display = (t === tabName) ? 'block' : 'none';
+        }
+    });
+}
+
+function addMiscPayRow() {
+    const container = document.getElementById('miscPayRowsContainer');
+    if (!container) return;
+    const idx = container.children.length;
+    const row = document.createElement('div');
+    row.className = 'misc-pay-row';
+    row.setAttribute('data-row-idx', idx);
+    row.innerHTML = `
+        <div class="hq-field-group">
+            <label>Misc Type Dropdown</label>
+            <select class="hq-select misc-type-select" onchange="recalcShiftPreview()">
+                <option value="💵 Reimbursement">💵 Reimbursement (Closed Store / Half-Pay)</option>
+                <option value="⚡ Peak Pay / Bonus">⚡ Peak Pay / Challenge Bonus</option>
+                <option value="📦 Extra Delivery Fee">📦 Extra Delivery Fee</option>
+                <option value="🎉 Other Misc Pay">🎉 Other Misc Pay</option>
+            </select>
+        </div>
+        <div class="hq-field-group">
+            <label>Misc Amount ($)</label>
+            <input type="number" step="0.01" min="0" class="hq-input misc-amount-input" value="0.00" placeholder="0.00" oninput="recalcShiftPreview()">
+        </div>
+        <div class="hq-field-group misc-note-group">
+            <label>Misc Reason / Note</label>
+            <input type="text" class="hq-input misc-note-input" placeholder="e.g. Extra delivery fee ($3.78)" oninput="recalcShiftPreview()">
+        </div>
+        <button type="button" class="remove-misc-row-btn" onclick="this.parentElement.remove(); recalcShiftPreview();" title="Remove Misc Row">&times;</button>
+    `;
+    container.appendChild(row);
+    recalcShiftPreview();
+}
+
+function collectMiscPaySummary() {
+    const rows = document.querySelectorAll('#miscPayRowsContainer .misc-pay-row');
+    let totalMiscAmount = 0;
+    const categories = [];
+    const notesParts = [];
+
+    rows.forEach(r => {
+        const typeEl = r.querySelector('.misc-type-select');
+        const amtEl = r.querySelector('.misc-amount-input');
+        const noteEl = r.querySelector('.misc-note-input');
+
+        const typeVal = typeEl ? typeEl.value.trim() : '';
+        const amtVal = amtEl ? (parseFloat(amtEl.value) || 0) : 0;
+        const noteVal = noteEl ? noteEl.value.trim() : '';
+
+        if (amtVal > 0 || noteVal) {
+            totalMiscAmount += amtVal;
+            const cleanCat = typeVal ? typeVal.replace(/^[^\w]+/, '').trim() : 'Misc Pay';
+            if (cleanCat && !categories.includes(cleanCat)) {
+                categories.push(cleanCat);
+            }
+            if (noteVal && amtVal > 0) {
+                notesParts.push(`${cleanCat} ($${amtVal.toFixed(2)}): ${noteVal}`);
+            } else if (noteVal) {
+                notesParts.push(`${cleanCat}: ${noteVal}`);
+            } else if (amtVal > 0) {
+                notesParts.push(`${cleanCat}: $${amtVal.toFixed(2)}`);
+            }
+        }
+    });
+
+    return {
+        miscAmount: parseFloat(totalMiscAmount.toFixed(2)),
+        miscCategory: categories.join(' + '),
+        miscNote: notesParts.join(' | ')
+    };
+}
+
+function recalcShiftPreview() {
+    const startVal = (document.getElementById('shiftStartInput') || {}).value || '';
+    const endVal = (document.getElementById('shiftEndInput') || {}).value || '';
+    const activeStr = (document.getElementById('shiftActiveHoursInput') || {}).value || '';
+    const miles = parseFloat((document.getElementById('shiftMilesInput') || {}).value) || 0;
+    const basePay = parseFloat((document.getElementById('shiftBasePayInput') || {}).value) || 0;
+    const tips = parseFloat((document.getElementById('shiftTipsInput') || {}).value) || 0;
+    const cashTips = parseFloat((document.getElementById('shiftCashTipsInput') || {}).value) || 0;
+
+    let calcHoursFormatted = '0:00';
+    let totalHrsFloat = 0;
+    let targetYear = 2026;
+    let targetMonth = 'November';
+
+    if (startVal) {
+        const sDate = new Date(startVal);
+        if (!isNaN(sDate.getTime())) {
+            targetYear = sDate.getFullYear();
+            targetMonth = MONTH_ORDER[sDate.getMonth()] || 'November';
+            if (endVal) {
+                const eDate = new Date(endVal);
+                if (!isNaN(eDate.getTime()) && eDate > sDate) {
+                    totalHrsFloat = (eDate.getTime() - sDate.getTime()) / 3600000;
+                    calcHoursFormatted = formatHrsMinsFromFloat(totalHrsFloat);
+                }
+            }
+        }
+    }
+
+    const hintEl = document.getElementById('shiftTotalHrsHint');
+    if (hintEl) hintEl.textContent = `Total: ${calcHoursFormatted}`;
+
+    const targetBadge = document.getElementById('shiftVaultTargetBadge');
+    if (targetBadge) targetBadge.textContent = `🏛️ Target: ${targetMonth} ${targetYear} Vault`;
+
+    const { miscAmount } = collectMiscPaySummary();
+    const grossTotal = basePay + tips + cashTips + miscAmount;
+    const activeHrsFloat = parseHoursToNumber(activeStr) || totalHrsFloat || 0;
+    const hourlyRate = activeHrsFloat > 0 ? (grossTotal / activeHrsFloat) : 0;
+    const taxSetAside = grossTotal * 0.30;
+    const irsDeduction = miles * IRS_MILEAGE_RATE;
+
+    const pTotal = document.getElementById('previewShiftTotal');
+    const pHourly = document.getElementById('previewShiftHourly');
+    const pTaxes = document.getElementById('previewShiftTaxes');
+    const pDed = document.getElementById('previewShiftDeduction');
+
+    if (pTotal) pTotal.textContent = `$${grossTotal.toFixed(2)}`;
+    if (pHourly) pHourly.textContent = `$${hourlyRate.toFixed(2)} / hr`;
+    if (pTaxes) pTaxes.textContent = `$${taxSetAside.toFixed(2)}`;
+    if (pDed) pDed.textContent = `$${irsDeduction.toFixed(2)}`;
+
+    return {
+        year: targetYear,
+        month: targetMonth,
+        hours: calcHoursFormatted,
+        grossTotal,
+        hourlyRate,
+        taxSetAside
+    };
+}
+
+function setGasStation(name) {
+    const input = document.getElementById('gasStationInput');
+    if (input) input.value = name;
+}
+
+function recalcGasPreview(changedField) {
+    const priceEl = document.getElementById('gasPriceInput');
+    const galsEl = document.getElementById('gasGallonsInput');
+    const totalEl = document.getElementById('gasTotalInput');
+    if (!priceEl || !galsEl || !totalEl) return;
+
+    const price = parseFloat(priceEl.value) || 0;
+    const gals = parseFloat(galsEl.value) || 0;
+    const total = parseFloat(totalEl.value) || 0;
+
+    if ((changedField === 'price' || changedField === 'gallons') && price > 0 && gals > 0) {
+        totalEl.value = (price * gals).toFixed(2);
+    } else if (changedField === 'total' && total > 0 && price > 0 && gals === 0) {
+        galsEl.value = (total / price).toFixed(3);
+    }
+}
+
+function prefillRatingsFormInputs() {
+    const setVal = (id, v) => {
+        const el = document.getElementById(id);
+        if (el && v !== undefined) el.value = v;
+    };
+    setVal('ratLifetimeInput', latestRatingsState.lifetime);
+    setVal('ratCustomerInput', latestRatingsState.customerRating);
+    setVal('ratOverallInput', latestRatingsState.overallRating);
+    setVal('rat5StarInput', latestRatingsState.stars5);
+    setVal('rat4StarInput', latestRatingsState.stars4);
+    setVal('rat3StarInput', latestRatingsState.stars3);
+    setVal('rat2StarInput', latestRatingsState.stars2);
+    setVal('rat1StarInput', latestRatingsState.stars1);
+    setVal('compCommInput', latestRatingsState.communication);
+    setVal('compHandlingInput', latestRatingsState.orderHandling);
+    setVal('compInstrInput', latestRatingsState.instructions);
+    setVal('compFriendlyInput', latestRatingsState.friendliness);
+    setVal('compAboveInput', latestRatingsState.aboveBeyond);
+}
+
+/* --- 4. Vault API Submit Handlers --- */
+async function submitShiftForm(event) {
+    event.preventDefault();
+    if (!currentAdminUser) return openAdminAuthModal();
+
+    const btn = document.getElementById('submitShiftBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving to Vault...'; }
+
+    try {
+        const calc = recalcShiftPreview();
+        const { miscAmount, miscCategory, miscNote } = collectMiscPaySummary();
+
+        const params = new URLSearchParams({
+            action: 'addShift',
+            adminEmail: currentAdminUser.email,
+            year: String(calc.year),
+            month: calc.month,
+            start: document.getElementById('shiftStartInput').value,
+            end: document.getElementById('shiftEndInput').value,
+            hours: calc.hours,
+            activeHours: document.getElementById('shiftActiveHoursInput').value,
+            miles: document.getElementById('shiftMilesInput').value,
+            deliveries: document.getElementById('shiftDeliveriesInput').value,
+            noTips: document.getElementById('shiftNoTipsInput').value || '0',
+            basePay: document.getElementById('shiftBasePayInput').value,
+            tips: document.getElementById('shiftTipsInput').value,
+            cashTips: document.getElementById('shiftCashTipsInput').value || '0',
+            miscAmount: String(miscAmount),
+            miscCategory: miscCategory,
+            miscNote: miscNote
+        });
+
+        const res = await fetch(`${API_BASE_URL}?${params.toString()}`);
+        const json = await res.json();
+
+        if (json && json.success && json.shift) {
+            liveVaultData.shifts.push(json.shift);
+            if (!liveVaultData.years.includes(json.shift.year)) {
+                liveVaultData.years.push(json.shift.year);
+            }
+            try { localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData)); } catch (e) {}
+            renderVaultYearSelectorPills();
+            expandedMonths[json.shift.month] = true;
+
+            if (currentVaultYear !== 'all' && Number(currentVaultYear) === Number(json.shift.year) && Number(json.shift.year) !== 2026) {
+                renderVaultYearFromRecords(json.shift.year);
+            } else if (cachedRawCsvData) {
+                processData(cachedRawCsvData);
+            }
+
+            showHqToast(`Shift ($${Number(json.shift.total).toFixed(2)}) saved to ${json.shift.month} ${json.shift.year} Vault!`);
+            document.getElementById('hqFormShift').reset();
+            closeAddDataModal();
+        } else {
+            showHqToast((json && json.error) || 'Could not save shift.', true);
+        }
+    } catch (err) {
+        console.error('Error submitting shift:', err);
+        showHqToast('Network error while saving shift.', true);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🚀 Save Shift to Vault'; }
+    }
+}
+
+async function submitGasForm(event) {
+    event.preventDefault();
+    if (!currentAdminUser) return openAdminAuthModal();
+
+    const btn = document.getElementById('submitGasBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving Fill-Up...'; }
+
+    try {
+        const params = new URLSearchParams({
+            action: 'addGas',
+            adminEmail: currentAdminUser.email,
+            date: document.getElementById('gasDateInput').value,
+            station: document.getElementById('gasStationInput').value,
+            price: document.getElementById('gasPriceInput').value,
+            gallons: document.getElementById('gasGallonsInput').value,
+            total: document.getElementById('gasTotalInput').value
+        });
+
+        const res = await fetch(`${API_BASE_URL}?${params.toString()}`);
+        const json = await res.json();
+
+        if (json && json.success && json.gas) {
+            liveVaultData.gas.push(json.gas);
+            if (!liveVaultData.years.includes(json.gas.year)) {
+                liveVaultData.years.push(json.gas.year);
+            }
+            try { localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData)); } catch (e) {}
+            renderVaultYearSelectorPills();
+            expandedMonths[json.gas.month] = true;
+
+            if (cachedRawCsvData) processData(cachedRawCsvData);
+            showHqToast(`Gas fill-up ($${Number(json.gas.total).toFixed(2)} at ${json.gas.station}) saved to Vault!`);
+            document.getElementById('hqFormGas').reset();
+            closeAddDataModal();
+        } else {
+            showHqToast((json && json.error) || 'Could not save gas fill-up.', true);
+        }
+    } catch (err) {
+        console.error('Error submitting gas:', err);
+        showHqToast('Network error while saving gas fill-up.', true);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '⛽ Save Gas Fill-Up to Vault'; }
+    }
+}
+
+async function submitExpenseForm(event) {
+    event.preventDefault();
+    if (!currentAdminUser) return openAdminAuthModal();
+
+    const btn = document.getElementById('submitExpenseBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Saving Expense...'; }
+
+    try {
+        const params = new URLSearchParams({
+            action: 'addExpense',
+            adminEmail: currentAdminUser.email,
+            date: document.getElementById('expDateInput').value,
+            category: document.getElementById('expCategoryInput').value,
+            name: document.getElementById('expNameInput').value,
+            desc: document.getElementById('expDescInput').value,
+            cost: document.getElementById('expCostInput').value
+        });
+
+        const res = await fetch(`${API_BASE_URL}?${params.toString()}`);
+        const json = await res.json();
+
+        if (json && json.success && json.item) {
+            if (!Array.isArray(liveExpensesData)) liveExpensesData = [];
+            liveExpensesData.push(json.item);
+            try { localStorage.setItem('dasher_live_expenses_cache', JSON.stringify(liveExpensesData)); } catch (e) {}
+            renderItemizedLedger(cachedSummaryEarnings || 0, cachedSummaryGas || 0);
+            showHqToast(`Expense "${json.item.name}" ($${Number(json.item.cost).toFixed(2)}) added to Ledger!`);
+            document.getElementById('hqFormExpense').reset();
+            closeAddDataModal();
+        } else {
+            showHqToast((json && json.error) || 'Could not save expense.', true);
+        }
+    } catch (err) {
+        console.error('Error submitting expense:', err);
+        showHqToast('Network error while saving expense.', true);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '🎒 Save Expense to Ledger'; }
+    }
+}
+
+async function submitRatingsForm(event) {
+    event.preventDefault();
+    if (!currentAdminUser) return openAdminAuthModal();
+
+    const btn = document.getElementById('submitRatingsBtn');
+    if (btn) { btn.disabled = true; btn.textContent = 'Updating Ratings...'; }
+
+    try {
+        const payload = {
+            action: 'updateRatings',
+            adminEmail: currentAdminUser.email,
+            lifetime: document.getElementById('ratLifetimeInput').value,
+            customerRating: document.getElementById('ratCustomerInput').value,
+            overallRating: document.getElementById('ratOverallInput').value,
+            stars5: document.getElementById('rat5StarInput').value,
+            stars4: document.getElementById('rat4StarInput').value,
+            stars3: document.getElementById('rat3StarInput').value,
+            stars2: document.getElementById('rat2StarInput').value,
+            stars1: document.getElementById('rat1StarInput').value,
+            communication: document.getElementById('compCommInput').value,
+            orderHandling: document.getElementById('compHandlingInput').value,
+            instructions: document.getElementById('compInstrInput').value,
+            friendliness: document.getElementById('compFriendlyInput').value,
+            aboveBeyond: document.getElementById('compAboveInput').value
+        };
+
+        const params = new URLSearchParams(payload);
+        const res = await fetch(`${API_BASE_URL}?${params.toString()}`);
+        const json = await res.json();
+
+        if (json && json.success) {
+            renderRatings(
+                ['LifeTime Deliveries', 'Customer Rating', 'Overall Dasher Rating', '5 stars', '4 stars', '3 stars', '2 stars', '1 star'],
+                [payload.lifetime, payload.customerRating, payload.overallRating, payload.stars5, payload.stars4, payload.stars3, payload.stars2, payload.stars1]
+            );
+            renderFeedback(
+                ['Communication', 'order handling', 'followed delivery instuctions', 'Friendliness', 'Above & Beyond'],
+                [payload.communication, payload.orderHandling, payload.instructions, payload.friendliness, payload.aboveBeyond]
+            );
+            showHqToast('Platinum Dasher Ratings & Compliments updated!');
+            closeAddDataModal();
+        } else {
+            showHqToast((json && json.error) || 'Could not update ratings.', true);
+        }
+    } catch (err) {
+        console.error('Error updating ratings:', err);
+        showHqToast('Network error while updating ratings.', true);
+    } finally {
+        if (btn) { btn.disabled = false; btn.textContent = '⭐ Save Ratings & Compliments'; }
+    }
+}
+
