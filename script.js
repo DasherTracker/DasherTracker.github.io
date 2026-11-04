@@ -1,18 +1,36 @@
 /* ==========================================================================
-   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v4.0.0)
+   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v4.1.0)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
-const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbyGWb4TxkVa3Sw6UAIiJMv-TZTUtdmIak6dF8bxRldTWVG15vEsFBNXuJmfwna0pPU/exec';
+const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbw92GGI-eopNMV4PZ19a3uNbgW9yeeCWgRhCDDAGV7WvlWmktM7OaGo7tTtPWhjulw/exec';
 const EXPENSES_API_URL = `${API_BASE_URL}?action=getExpenses`;
 const VAULT_API_URL = `${API_BASE_URL}?action=getVaultData`;
-const CACHE_KEY = 'dasher_tracker_data_v14';
-const CACHE_TIME_KEY = 'dasher_tracker_time_v14';
-const VAULT_CACHE_KEY = 'dasher_tracker_vault_v14';
-const ADMIN_AUTH_STORAGE_KEY = 'dasher_hq_admin_auth_v1';
-const ALLOWED_ADMIN_EMAILS = ['briandivacox@gmail.com'];
-const VISITOR_API_URL = 'https://livecounters-8eaa8-default-rtdb.firebaseio.com/labData';
+const FIREBASE_DB_URL = 'https://dasher-tracker-hq-default-rtdb.firebaseio.com';
+const VISITOR_API_URL = `${FIREBASE_DB_URL}/telemetry`;
+const CACHE_KEY = 'dasher_tracker_data_v15';
+const CACHE_TIME_KEY = 'dasher_tracker_time_v15';
+const VAULT_CACHE_KEY = 'dasher_tracker_vault_v15';
+const ADMIN_AUTH_STORAGE_KEY = 'dasher_hq_admin_auth_v2';
+const ADMIN_IDENTITY_HASH = '45d63bb318193d8cfcf6382975c8fa5438df4ba0fa766702863d485431c0969a';
 const IRS_MILEAGE_RATE = 0.67; // 2024-2026 IRS Standard Business Mileage Rate ($0.67/mi)
+
+// Dedicated Dasher Tracker Firebase Project Config (dasher-tracker-hq)
+const DASHER_FIREBASE_CONFIG = {
+    apiKey: "AIzaSyAG37Lqje4w_GAXj4hp6Tg9td2CZvAmFfc",
+    authDomain: "dasher-tracker-hq.firebaseapp.com",
+    databaseURL: FIREBASE_DB_URL,
+    projectId: "dasher-tracker-hq",
+    storageBucket: "dasher-tracker-hq.firebasestorage.app",
+    messagingSenderId: "1093952301206",
+    appId: "1:1093952301206:web:9b9e6824a2cbc866813ab7"
+};
+
+try {
+    if (typeof firebase !== 'undefined' && (!firebase.apps || firebase.apps.length === 0)) {
+        firebase.initializeApp(DASHER_FIREBASE_CONFIG);
+    }
+} catch (e) {}
 
 // Fallback Starter Gear & Upkeep Data
 const DASHER_GEAR_ITEMS = [
@@ -151,6 +169,22 @@ async function fetchLiveExpenses() {
 
 async function fetchLiveVaultData() {
     try {
+        // 1. Primary: Read from Dedicated Dasher Tracker Firebase Realtime Database
+        const fbRes = await fetch(`${FIREBASE_DB_URL}/vault.json?_t=${Date.now()}`);
+        const fbJson = await fbRes.json();
+        if (fbJson && Array.isArray(fbJson.shifts) && fbJson.shifts.length > 0) {
+            liveVaultData = {
+                years: Array.isArray(fbJson.years) && fbJson.years.length > 0 ? fbJson.years : [2026],
+                shifts: fbJson.shifts,
+                gas: Array.isArray(fbJson.gas) ? fbJson.gas : [],
+                expenses: Array.isArray(fbJson.expenses) ? fbJson.expenses : []
+            };
+            try { localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData)); } catch (e) {}
+            renderVaultYearSelectorPills();
+            if (cachedRawCsvData) processData(cachedRawCsvData);
+        }
+
+        // 2. Sync latest from Google Sheets Vault endpoint & mirror to Firebase
         const fetchUrl = `${VAULT_API_URL}&_t=${Date.now()}`;
         const res = await fetch(fetchUrl);
         const json = await res.json();
@@ -169,6 +203,11 @@ async function fetchLiveVaultData() {
             }
             try {
                 localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData));
+                fetch(`${FIREBASE_DB_URL}/vault.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...liveVaultData, lastSynced: Date.now() })
+                }).catch(() => {});
             } catch (e) {}
             renderVaultYearSelectorPills();
             if (cachedRawCsvData) {
@@ -1601,18 +1640,31 @@ function renderVaultYearFromRecords(targetYear) {
     if (countBadge) countBadge.textContent = `${targetYear} Vault • ${activeMonthsCount} Active Months`;
 }
 
-/* --- 2. Google Account Admin Security Gate --- */
-function isAuthorizedAdminEmail(email) {
-    if (!email) return false;
-    return ALLOWED_ADMIN_EMAILS.includes(String(email).toLowerCase().trim());
+/* --- 2. Minimalist Google Account Security Gate (Zero Exposed Emails) --- */
+async function computeSha256Hex(text) {
+    const clean = String(text || '').toLowerCase().trim();
+    if (!clean) return '';
+    if (window.crypto && window.crypto.subtle) {
+        const msgBuffer = new TextEncoder().encode(clean);
+        const hashBuffer = await window.crypto.subtle.digest('SHA-256', msgBuffer);
+        const hashArray = Array.from(new Uint8Array(hashBuffer));
+        return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+    }
+    return '';
 }
 
-function initAdminAuthState() {
+async function isAuthorizedAdminEmail(email) {
+    if (!email) return false;
+    const h = await computeSha256Hex(email);
+    return h === ADMIN_IDENTITY_HASH;
+}
+
+async function initAdminAuthState() {
     try {
         const saved = localStorage.getItem(ADMIN_AUTH_STORAGE_KEY);
         if (saved) {
             const parsed = JSON.parse(saved);
-            if (parsed && isAuthorizedAdminEmail(parsed.email)) {
+            if (parsed && parsed.email && (await isAuthorizedAdminEmail(parsed.email))) {
                 applyAdminUnlockedState(parsed.email, false);
                 return;
             }
@@ -1633,11 +1685,11 @@ function applyAdminUnlockedState(email, showToastFlag = true) {
 
     if (lockBtn) lockBtn.style.display = 'none';
     if (unlockedWrap) unlockedWrap.style.display = 'flex';
-    if (emailLabel) emailLabel.textContent = `🔓 Admin Verified • ${currentAdminUser.email}`;
+    if (emailLabel) emailLabel.textContent = '🔓 Admin Verified';
 
     closeAdminAuthModal();
     if (showToastFlag) {
-        showHqToast(`Admin HQ Unlocked (${currentAdminUser.email})`);
+        showHqToast('Admin HQ Unlocked');
     }
 }
 
@@ -1645,6 +1697,9 @@ function applyAdminLockedState() {
     currentAdminUser = null;
     try {
         localStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
+        if (typeof firebase !== 'undefined' && firebase.auth) {
+            firebase.auth().signOut().catch(() => {});
+        }
     } catch (e) {}
 
     const lockBtn = document.getElementById('adminLockBtn');
@@ -1662,13 +1717,8 @@ function signOutAdmin() {
 function openAdminAuthModal() {
     const overlay = document.getElementById('adminAuthModalOverlay');
     const errEl = document.getElementById('adminAuthErrorMsg');
-    const emailInput = document.getElementById('adminGoogleEmailInput');
     if (errEl) errEl.style.display = 'none';
     if (overlay) overlay.style.display = 'flex';
-    if (emailInput) {
-        emailInput.value = '';
-        setTimeout(() => emailInput.focus(), 50);
-    }
 }
 
 function closeAdminAuthModal() {
@@ -1676,26 +1726,44 @@ function closeAdminAuthModal() {
     if (overlay) overlay.style.display = 'none';
 }
 
-function handleAdminGoogleSignIn(event) {
+async function handleAdminGoogleSignIn(event) {
     if (event) event.preventDefault();
-    const emailInput = document.getElementById('adminGoogleEmailInput');
     const errEl = document.getElementById('adminAuthErrorMsg');
-    const email = (emailInput ? emailInput.value : '').trim().toLowerCase();
+    if (errEl) errEl.style.display = 'none';
 
-    if (!isAuthorizedAdminEmail(email)) {
+    try {
+        if (typeof firebase !== 'undefined' && firebase.auth) {
+            const provider = new firebase.auth.GoogleAuthProvider();
+            provider.setCustomParameters({ prompt: 'select_account' });
+            const result = await firebase.auth().signInWithPopup(provider);
+            const email = (result && result.user && result.user.email) ? result.user.email : '';
+            if (await isAuthorizedAdminEmail(email)) {
+                applyAdminUnlockedState(email, true);
+                return;
+            } else {
+                await firebase.auth().signOut().catch(() => {});
+                if (errEl) {
+                    errEl.textContent = '🚫 Access Denied: Unauthorized Google account.';
+                    errEl.style.display = 'block';
+                }
+                return;
+            }
+        }
+    } catch (popupErr) {
+        if (popupErr && popupErr.code === 'auth/popup-closed-by-user') {
+            return;
+        }
+        console.warn('Google Auth popup notice:', popupErr);
         if (errEl) {
-            errEl.textContent = `🚫 Access Denied: "${email || 'Unknown'}" is not authorized. Only briandivacox@gmail.com can unlock Admin HQ.`;
+            errEl.textContent = '🚫 Google Sign-In failed or was blocked by browser popup settings.';
             errEl.style.display = 'block';
         }
-        return;
     }
-
-    applyAdminUnlockedState(email, true);
 }
 
 /* --- 3. + Add Data to Vault Modal & Live Calculators --- */
-function openAddDataModal(defaultTab = 'shift') {
-    if (!currentAdminUser || !isAuthorizedAdminEmail(currentAdminUser.email)) {
+async function openAddDataModal(defaultTab = 'shift') {
+    if (!currentAdminUser || !(await isAuthorizedAdminEmail(currentAdminUser.email))) {
         openAdminAuthModal();
         return;
     }
@@ -1959,7 +2027,14 @@ async function submitShiftForm(event) {
             if (!liveVaultData.years.includes(json.shift.year)) {
                 liveVaultData.years.push(json.shift.year);
             }
-            try { localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData)); } catch (e) {}
+            try {
+                localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData));
+                fetch(`${FIREBASE_DB_URL}/vault.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...liveVaultData, lastSynced: Date.now() })
+                }).catch(() => {});
+            } catch (e) {}
             renderVaultYearSelectorPills();
             expandedMonths[json.shift.month] = true;
 
@@ -2009,7 +2084,14 @@ async function submitGasForm(event) {
             if (!liveVaultData.years.includes(json.gas.year)) {
                 liveVaultData.years.push(json.gas.year);
             }
-            try { localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData)); } catch (e) {}
+            try {
+                localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData));
+                fetch(`${FIREBASE_DB_URL}/vault.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...liveVaultData, lastSynced: Date.now() })
+                }).catch(() => {});
+            } catch (e) {}
             renderVaultYearSelectorPills();
             expandedMonths[json.gas.month] = true;
 
@@ -2052,7 +2134,15 @@ async function submitExpenseForm(event) {
         if (json && json.success && json.item) {
             if (!Array.isArray(liveExpensesData)) liveExpensesData = [];
             liveExpensesData.push(json.item);
-            try { localStorage.setItem('dasher_live_expenses_cache', JSON.stringify(liveExpensesData)); } catch (e) {}
+            liveVaultData.expenses = liveExpensesData;
+            try {
+                localStorage.setItem('dasher_live_expenses_cache', JSON.stringify(liveExpensesData));
+                fetch(`${FIREBASE_DB_URL}/vault/expenses.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(liveExpensesData)
+                }).catch(() => {});
+            } catch (e) {}
             renderItemizedLedger(cachedSummaryEarnings || 0, cachedSummaryGas || 0);
             showHqToast(`Expense "${json.item.name}" ($${Number(json.item.cost).toFixed(2)}) added to Ledger!`);
             document.getElementById('hqFormExpense').reset();

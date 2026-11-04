@@ -1,0 +1,12 @@
+{
+  "rules": {
+    "telemetry": {
+      ".read": true,
+      ".write": true
+    },
+    "vault": {
+      ".read": true,
+      ".write": true
+    }
+  }
+}

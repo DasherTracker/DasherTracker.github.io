@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.0] - 2026-11-04
+### Added
+- Created dedicated Dasher Tracker Firebase project and database.
+- Launched live hosting on official DasherTracker.web.app domain.
+- Simplified Security Gate modal to one-click Google button.
+- Removed exposed admin emails using SHA-256 identity hashing.
+
 ## [4.0.0] - 2026-11-04
 ### Added
 - Upgraded site into Multi-Year Data Vault and HQ.

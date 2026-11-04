@@ -1,0 +1,14 @@
+{
+  "projects": {
+    "default": "dasher-tracker-hq"
+  },
+  "targets": {
+    "dasher-tracker-hq": {
+      "hosting": {
+        "dashertracker": [
+          "dashertracker"
+        ]
+      }
+    }
+  }
+}

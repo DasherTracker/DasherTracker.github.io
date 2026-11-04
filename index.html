@@ -10,12 +10,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=4.0.0">
+    <link rel="stylesheet" href="styles.css?v=4.1.0">
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Chart.js for data visualization -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- Google Identity Services for Admin Auth -->
+    <!-- Firebase SDK (Dedicated Dasher Tracker Project: dasher-tracker-hq) -->
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <!-- Google Identity Services -->
     <script src="https://accounts.google.com/gsi/client" async defer></script>
 </head>
 <body>
@@ -49,16 +53,16 @@
             <!-- ADMIN GOOGLE LOCK & COMMAND ACTIONS -->
             <div class="header-controls">
                 <!-- Public / Locked Admin Sign-In Button -->
-                <button type="button" id="adminLockBtn" class="admin-lock-btn" onclick="openAdminAuthModal()" title="Sign in with Google Admin Account (briandivacox@gmail.com) to unlock + Add Data">
+                <button type="button" id="adminLockBtn" class="admin-lock-btn" onclick="openAdminAuthModal()" title="Admin Security Gate">
                     <span class="lock-icon">🔐</span>
-                    <span>Admin Sign-In</span>
+                    <span>Security Gate</span>
                 </button>
 
                 <!-- Unlocked Admin Verified Pill + Add Data CTA (Hidden until Admin Signed In) -->
                 <div id="adminUnlockedControls" class="admin-unlocked-controls" style="display: none;">
-                    <div class="admin-verified-pill" title="Signed in as Authorized Google Admin">
+                    <div class="admin-verified-pill" title="Signed in as Authorized Admin">
                         <span class="verified-dot"></span>
-                        <span class="verified-text" id="adminVerifiedEmailLabel">🔓 Admin Verified • briandivacox@gmail.com</span>
+                        <span class="verified-text" id="adminVerifiedEmailLabel">🔓 Admin Verified</span>
                         <button type="button" class="admin-signout-mini" onclick="signOutAdmin()" title="Lock Admin Menu">Lock</button>
                     </div>
                     <button type="button" id="openAddDataModalBtn" class="add-data-cta-btn" onclick="openAddDataModal('shift')">
@@ -66,7 +70,7 @@
                     </button>
                 </div>
 
-                <button id="refreshBtn" class="refresh-btn" onclick="fetchDashboardData()" title="Fetch latest Multi-Year Vault & Google Sheets data">
+                <button id="refreshBtn" class="refresh-btn" onclick="fetchDashboardData()" title="Fetch latest Multi-Year Vault & Firebase data">
                     <span class="btn-icon">↻</span> Refresh Vault
                 </button>
             </div>
@@ -494,55 +498,39 @@
 
         <!-- FOOTER -->
         <footer class="dashboard-footer">
-            <p>Dasher Tracker HQ <span class="version-badge">v4.0.0</span> • Multi-Year Delivery Vault & Tax Intelligence</p>
+            <p>Dasher Tracker HQ <span class="version-badge">v4.1.0</span> • Multi-Year Delivery Vault & Tax Intelligence</p>
         </footer>
     </main>
 
     <!-- ==========================================================================
-         MODAL 1: GOOGLE ACCOUNT ADMIN SECURITY GATE
+         MODAL 1: MINIMALIST SECURITY GATE (JUST TITLE + GOOGLE BUTTON)
          ========================================================================== -->
     <div id="adminAuthModalOverlay" class="hq-modal-overlay" style="display: none;" onclick="if(event.target===this) closeAdminAuthModal()">
         <div class="hq-modal-card admin-auth-card" role="dialog" aria-modal="true" aria-labelledby="adminAuthTitle">
-            <div class="hq-modal-header">
+            <div class="hq-modal-header" style="border-bottom: none; padding-bottom: 0.25rem; margin-bottom: 0.75rem;">
                 <div class="hq-modal-title-group">
                     <span class="hq-modal-icon">🔐</span>
                     <div>
-                        <h3 id="adminAuthTitle">Google Admin Security Gate</h3>
-                        <p class="hq-modal-sub">Verify your authorized Google account to unlock Vault data entry</p>
+                        <h3 id="adminAuthTitle">Security Gate</h3>
                     </div>
                 </div>
                 <button type="button" class="hq-modal-close" onclick="closeAdminAuthModal()" aria-label="Close">&times;</button>
             </div>
 
             <div class="admin-auth-body">
-                <div class="google-auth-shield-banner">
-                    <span class="shield-icon">🛡️</span>
-                    <div>
-                        <strong>Protected Command HQ</strong>
-                        <p>Only <code>briandivacox@gmail.com</code> is authorized to log new shifts, gas fill-ups, expenses, or ratings into the Multi-Year Vault.</p>
-                    </div>
+                <div id="adminAuthErrorMsg" class="hq-error-banner" style="display: none;"></div>
+
+                <div class="admin-auth-actions">
+                    <button type="button" id="googleVerifySubmitBtn" class="google-signin-btn" onclick="handleAdminGoogleSignIn(event)">
+                        <svg class="google-g-icon" viewBox="0 0 24 24" width="18" height="18">
+                            <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.7 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"/>
+                            <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"/>
+                            <path fill="#FBBC05" d="M5.3 14.8c-.2-.8-.4-1.6-.4-2.5s.2-1.7.4-2.5L1.6 7C.6 9 0 11.2 0 13.5s.6 4.5 1.6 6.5l3.7-2.8z"/>
+                            <path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5l-3.7 2.8C3.5 20.9 7.4 24 12 24z"/>
+                        </svg>
+                        <span>Continue with Google</span>
+                    </button>
                 </div>
-
-                <form id="adminAuthForm" onsubmit="handleAdminGoogleSignIn(event)">
-                    <div class="hq-field-group">
-                        <label for="adminGoogleEmailInput">Verify Google Account Email</label>
-                        <input type="email" id="adminGoogleEmailInput" class="hq-input" placeholder="e.g. briandivacox@gmail.com" autocomplete="email" required>
-                    </div>
-
-                    <div id="adminAuthErrorMsg" class="hq-error-banner" style="display: none;"></div>
-
-                    <div class="admin-auth-actions">
-                        <button type="submit" id="googleVerifySubmitBtn" class="google-signin-btn">
-                            <svg class="google-g-icon" viewBox="0 0 24 24" width="18" height="18">
-                                <path fill="#EA4335" d="M12 5c1.6 0 3 .6 4.1 1.7l3.1-3.1C17.3 1.7 14.8 1 12 1 7.4 1 3.5 3.6 1.6 7.4l3.7 2.8C6.2 7.2 8.9 5 12 5z"/>
-                                <path fill="#4285F4" d="M23.5 12.3c0-.8-.1-1.6-.2-2.3H12v4.5h6.5c-.3 1.5-1.1 2.8-2.4 3.6l3.7 2.9c2.2-2 3.7-5 3.7-8.7z"/>
-                                <path fill="#FBBC05" d="M5.3 14.8c-.2-.8-.4-1.6-.4-2.5s.2-1.7.4-2.5L1.6 7C.6 9 0 11.2 0 13.5s.6 4.5 1.6 6.5l3.7-2.8z"/>
-                                <path fill="#34A853" d="M12 24c3.2 0 6-1.1 8-3l-3.7-2.9c-1.1.7-2.5 1.2-4.3 1.2-3.1 0-5.8-2.1-6.7-5l-3.7 2.8C3.5 20.9 7.4 24 12 24z"/>
-                            </svg>
-                            <span>Continue with Google Account</span>
-                        </button>
-                    </div>
-                </form>
             </div>
         </div>
     </div>
@@ -557,11 +545,11 @@
                     <span class="hq-modal-icon">⚡</span>
                     <div>
                         <h3 id="addDataModalTitle">Add Data to Multi-Year Vault</h3>
-                        <p class="hq-modal-sub">Automatically routes by Date & Year into your Google Sheet Vault — zero new tabs needed</p>
+                        <p class="hq-modal-sub">Automatically routes by Date & Year into your Firebase & Google Sheet Vault</p>
                     </div>
                 </div>
                 <div class="hq-modal-header-right">
-                    <span class="admin-modal-badge">🔓 briandivacox@gmail.com</span>
+                    <span class="admin-modal-badge">🔓 Admin Verified</span>
                     <button type="button" class="hq-modal-close" onclick="closeAddDataModal()" aria-label="Close">&times;</button>
                 </div>
             </div>
@@ -838,6 +826,6 @@
     <!-- TOAST NOTIFICATION CONTAINER -->
     <div id="hqToastContainer" class="hq-toast-container"></div>
 
-    <script src="script.js?v=4.0.0"></script>
+    <script src="script.js?v=4.1.0"></script>
 </body>
 </html>
