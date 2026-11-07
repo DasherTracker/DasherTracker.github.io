@@ -1,9 +1,9 @@
 /* ==========================================================================
-   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v4.2.0)
+   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v4.2.1)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
-const API_BASE_URL = 'https://script.google.com/macros/s/AKfycby-OPzWiYMwIObo-tVhbOXJ95r47ohn_aZUn-7AZz54dueFQqJY6ZTHtJaAcrExZ2g/exec';
+const API_BASE_URL = 'https://script.google.com/macros/s/AKfycby1-kBvcS3e26AbWbEu8jC6F_J6x44MAQxmUbHypP3rFaAk6QyrdbqpTyJy8BXJaaQ/exec';
 const EXPENSES_API_URL = `${API_BASE_URL}?action=getExpenses`;
 const VAULT_API_URL = `${API_BASE_URL}?action=getVaultData`;
 const FIREBASE_DB_URL = 'https://dasher-tracker-hq-default-rtdb.firebaseio.com';
@@ -205,7 +205,8 @@ async function fetchLiveVaultData() {
                 years: Array.isArray(fbJson.years) && fbJson.years.length > 0 ? fbJson.years : [2026],
                 shifts: fbJson.shifts,
                 gas: Array.isArray(fbJson.gas) ? fbJson.gas : [],
-                expenses: Array.isArray(fbJson.expenses) ? fbJson.expenses : []
+                expenses: Array.isArray(fbJson.expenses) ? fbJson.expenses : [],
+                ratings: fbJson.ratings || null
             };
             try { localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData)); } catch (e) {}
             renderVaultYearSelectorPills();
@@ -221,7 +222,8 @@ async function fetchLiveVaultData() {
                 years: Array.isArray(json.years) && json.years.length > 0 ? json.years : [2026],
                 shifts: Array.isArray(json.shifts) ? json.shifts : [],
                 gas: Array.isArray(json.gas) ? json.gas : [],
-                expenses: Array.isArray(json.expenses) ? json.expenses : []
+                expenses: Array.isArray(json.expenses) ? json.expenses : [],
+                ratings: json.ratings || null
             };
             if (Array.isArray(json.expenses)) {
                 liveExpensesData = json.expenses;
@@ -435,41 +437,88 @@ function processData(data) {
                 continue;
             }
             
-            // 4. Monthly Rows
+            // 4. Monthly Rows (Merged with Live Vault Records so newly logged shifts & gas update 100% in real time!)
             const validMonths = ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december'];
             if (validMonths.includes(col0.toLowerCase())) {
-                const rawHours = (row[1] || '0').replace(/^"|"$/g, '').trim();
-                const hoursNum = parseHoursToNumber(rawHours);
-                
+                const { shifts: mShifts, gas: mGas } = getVaultRecordsForMonth(col0);
+
+                let rawHours = (row[1] || '0').replace(/^"|"$/g, '').trim();
+                let hoursNum = parseHoursToNumber(rawHours);
+                let activeHoursStr = (row[2] || '0').replace(/^"|"$/g, '').trim();
+                let activeHoursNum = parseHoursToNumber(activeHoursStr);
+
                 const rawMiles = (row[3] || '0').replace(/^"|"$/g, '').replace(/,/g, '').trim();
-                const milesNum = parseFloat(rawMiles) || 0;
-                
-                const deliveries = parseInt((row[4] || '0').replace(/[^0-9]/g, "")) || 0;
-                
+                let milesNum = parseFloat(rawMiles) || 0;
+
+                let deliveries = parseInt((row[4] || '0').replace(/[^0-9]/g, "")) || 0;
+
                 const basePayStr = (row[5] || '$0').replace(/^"|"$/g, '').trim();
-                const basePayNum = parseFloat(basePayStr.replace(/[^0-9.-]+/g, "")) || 0;
-                
+                let basePayNum = parseFloat(basePayStr.replace(/[^0-9.-]+/g, "")) || 0;
+
                 const tipsStr = (row[6] || '$0').replace(/^"|"$/g, '').trim();
-                const tipsNum = parseFloat(tipsStr.replace(/[^0-9.-]+/g, "")) || 0;
-                
+                let tipsNum = parseFloat(tipsStr.replace(/[^0-9.-]+/g, "")) || 0;
+
                 const cashTipsStr = (row[7] || '$0').replace(/^"|"$/g, '').trim();
-                const cashTipsNum = parseFloat(cashTipsStr.replace(/[^0-9.-]+/g, "")) || 0;
-                
+                let cashTipsNum = parseFloat(cashTipsStr.replace(/[^0-9.-]+/g, "")) || 0;
+
                 const taxesStr = (row[8] || '$0').replace(/^"|"$/g, '').trim();
-                const taxesNum = parseFloat(taxesStr.replace(/[^0-9.-]+/g, "")) || 0;
+                let taxesNum = parseFloat(taxesStr.replace(/[^0-9.-]+/g, "")) || 0;
 
                 const totalPayStr = (row[9] || '$0').replace(/^"|"$/g, '').trim();
-                const totalPayNum = parseFloat(totalPayStr.replace(/[^0-9.-]+/g, "")) || 0;
-                
+                let totalPayNum = parseFloat(totalPayStr.replace(/[^0-9.-]+/g, "")) || 0;
+
                 const hourlyRateStr = (row[10] || '$0.00').replace(/^"|"$/g, '').trim();
-                const hourlyRateNum = parseFloat(hourlyRateStr.replace(/[^0-9.-]+/g, "")) || 0;
-                
+                let hourlyRateNum = parseFloat(hourlyRateStr.replace(/[^0-9.-]+/g, "")) || 0;
+
                 const gasStr = (row[13] || '$0.00').replace(/^"|"$/g, '').trim();
-                const gasNum = parseFloat(gasStr.replace(/[^0-9.-]+/g, "")) || 0;
-                
-                const noTipCount = parseInt((row[11] || '0').replace(/[^0-9]/g, '')) || 0;
+                let gasNum = parseFloat(gasStr.replace(/[^0-9.-]+/g, "")) || 0;
+
+                let noTipCount = parseInt((row[11] || '0').replace(/[^0-9]/g, '')) || 0;
+
+                // Live Vault Override: If liveVaultData has newer/more shift records for this month than cached CSV, use live Vault math!
+                if (mShifts.length > 0) {
+                    let vHrs = 0, vActHrs = 0, vMiles = 0, vDeliv = 0, vBase = 0, vTips = 0, vCash = 0, vTotal = 0, vTaxes = 0, vNoTip = 0;
+                    mShifts.forEach(s => {
+                        vHrs += parseHoursToNumber(String(s.hours || '0'));
+                        vActHrs += parseHoursToNumber(String(s.activeHours || '0'));
+                        vMiles += Number(s.miles || 0);
+                        vDeliv += Number(s.deliveries || 0);
+                        vBase += Number(s.basePay || 0);
+                        vTips += Number(s.tips || 0);
+                        vCash += Number(s.cashTips || 0);
+                        vTotal += Number(s.total || 0);
+                        vTaxes += Number(s.taxes || 0);
+                        vNoTip += Number(s.noTips || 0);
+                    });
+                    if (vDeliv >= deliveries || vTotal >= totalPayNum) {
+                        hoursNum = Math.max(hoursNum, vHrs);
+                        rawHours = formatHrsMinsFromFloat(hoursNum);
+                        activeHoursNum = Math.max(activeHoursNum, vActHrs);
+                        activeHoursStr = formatHrsMinsFromFloat(activeHoursNum);
+                        milesNum = Math.max(milesNum, vMiles);
+                        deliveries = Math.max(deliveries, vDeliv);
+                        basePayNum = Math.max(basePayNum, vBase);
+                        tipsNum = Math.max(tipsNum, vTips);
+                        cashTipsNum = Math.max(cashTipsNum, vCash);
+                        totalPayNum = Math.max(totalPayNum, vTotal);
+                        taxesNum = Math.max(taxesNum, vTaxes);
+                        noTipCount = Math.max(noTipCount, vNoTip);
+                        if (activeHoursNum > 0) {
+                            hourlyRateNum = parseFloat((totalPayNum / activeHoursNum).toFixed(2));
+                        }
+                    }
+                }
+
+                if (mGas.length > 0) {
+                    const vGas = mGas.reduce((sum, g) => sum + Number(g.total || 0), 0);
+                    if (vGas >= gasNum) {
+                        gasNum = vGas;
+                    }
+                }
+
                 const tippedCount = Math.max(0, deliveries - noTipCount);
-                
+                const pctNoTipVal = deliveries > 0 ? `${((noTipCount / deliveries) * 100).toFixed(2)}%` : '0.00%';
+
                 totalEarnings += totalPayNum;
                 totalDeliveries += deliveries;
                 totalGas += gasNum;
@@ -480,8 +529,8 @@ function processData(data) {
                 totalMiles += milesNum;
                 totalDashHoursNum += hoursNum;
                 totalNoTipping += noTipCount;
-                
-                if (totalPayNum > 0 || deliveries > 0) {
+
+                if (totalPayNum > 0 || deliveries > 0 || gasNum > 0) {
                     activeMonthsCount++;
                     chartLabels.push(col0);
                     chartEarnings.push(totalPayNum);
@@ -495,18 +544,18 @@ function processData(data) {
                 monthlyRows.push({
                     month: col0,
                     hours: rawHours,
-                    activeHours: (row[2] || '0').replace(/^"|"$/g, '').trim(),
-                    miles: (row[3] || '0').replace(/^"|"$/g, '').trim(),
+                    activeHours: activeHoursStr,
+                    miles: Math.round(milesNum).toLocaleString('en-US'),
                     deliveries,
-                    basePay: basePayStr,
-                    tips: tipsStr,
-                    cashTips: cashTipsStr,
-                    taxes: taxesStr,
-                    gas: gasStr,
-                    totalPay: totalPayStr,
-                    hourlyRate: hourlyRateStr,
-                    noTipping: (row[11] || '0').replace(/^"|"$/g, '').trim(),
-                    pctNoTipping: (row[12] || '0.00%').replace(/^"|"$/g, '').trim(),
+                    basePay: `$${basePayNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    tips: `$${tipsNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    cashTips: `$${cashTipsNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    taxes: `$${taxesNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    gas: `$${gasNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    totalPay: `$${totalPayNum.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+                    hourlyRate: `$${hourlyRateNum.toFixed(2)}`,
+                    noTipping: String(noTipCount),
+                    pctNoTipping: pctNoTipVal,
                     totalPayNum,
                     gasNum,
                     hourlyRateNum,
@@ -517,17 +566,24 @@ function processData(data) {
             }
         }
 
-        // Parse total row overrides if available for total miles, hours, and no tipping
-        if (totalRow) {
-            const rowMiles = (totalRow[3] || '').replace(/[^0-9.]/g, '');
-            if (rowMiles) totalMiles = parseFloat(rowMiles) || totalMiles;
-            
-            const rowHours = totalRow[1] || '';
-            if (rowHours) totalDashHoursNum = parseHoursToNumber(rowHours) || totalDashHoursNum;
-
-            const rowNoTip = (totalRow[11] || '').replace(/[^0-9]/g, '');
-            if (rowNoTip) totalNoTipping = parseInt(rowNoTip) || totalNoTipping;
-        }
+        // Build live Total Row from the dynamically merged monthly totals so the footer Total Row always matches 100%
+        const liveTotalRow = [
+            'Total',
+            formatHrsMinsFromFloat(totalDashHoursNum),
+            totalRow && totalRow[2] ? totalRow[2] : formatHrsMinsFromFloat(totalDashHoursNum * 0.81),
+            Math.round(totalMiles).toLocaleString('en-US'),
+            totalDeliveries.toLocaleString('en-US'),
+            `$${totalBasePay.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `$${totalTips.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `$${totalCashTips.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `$${totalTaxes.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `$${totalEarnings.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`,
+            `$${(totalDashHoursNum > 0 ? (totalEarnings / totalDashHoursNum) : 0).toFixed(2)}`,
+            totalNoTipping.toLocaleString('en-US'),
+            totalDeliveries > 0 ? `${((totalNoTipping / totalDeliveries) * 100).toFixed(2)}%` : '0.00%',
+            `$${totalGas.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+        ];
+        totalRow = liveTotalRow;
 
         // Fallbacks for ratings & feedback if header row not in gviz CSV export
         if (!ratingsHeaders) {
@@ -578,7 +634,7 @@ function processData(data) {
         renderItemizedLedger(totalEarnings, totalGas);
         renderSecondaryKpis(totalEarnings, totalBasePay, totalTips + totalCashTips, totalGas);
         renderChart(currentChartType);
-        renderRatings(ratingsHeaders, ratingsValues);
+        renderRatings(ratingsHeaders, ratingsValues, totalDeliveries);
         renderFeedback(feedbackHeaders, feedbackValues);
         renderTable(monthlyRows);
         renderTotalRow(totalRow, totalMiles);
@@ -824,28 +880,48 @@ function renderSecondaryKpis(gross, basePay, totalTips, gas) {
 /* ==========================================================================
    RATINGS & PRESTIGE SHOWCASE
    ========================================================================== */
-function renderRatings(headers, values) {
+function renderRatings(headers, values, liveTotalDeliveries = 0) {
     const custRatingEl = document.getElementById('valCustomerRating');
     const overallRatingEl = document.getElementById('valOverallRating');
     const lifetimeEl = document.getElementById('valLifetimeDeliveries');
     const starContainer = document.getElementById('starBreakdownRows');
     
     if (!headers || !values) return;
-    
+
+    // Align headers and values if header row has an empty leading Column A cell (e.g. ["", "LifeTime Deliveries", ...] vs ["1318", "5", ...])
+    const cleanHeaders = headers.map(h => (h || '').trim()).filter(h => h !== '');
+    const cleanValues = values.map(v => (v || '').trim()).filter(v => v !== '');
+
     const map = {};
-    for (let i = 0; i < headers.length; i++) {
-        if (headers[i]) {
-            map[headers[i].toLowerCase().trim()] = (values[i] || '0').trim();
+    for (let i = 0; i < cleanHeaders.length; i++) {
+        if (cleanHeaders[i]) {
+            map[cleanHeaders[i].toLowerCase().trim()] = (cleanValues[i] || '0').trim();
         }
     }
-    
-    const lifetime = map['lifetime deliveries'] || map['lifetime'] || '1,114';
-    const customerRating = map['customer rating'] || '5.0';
-    const overallRating = map['overall dasher rating'] || '100';
-    
+
+    let lifetimeNum = parseInt(String(map['lifetime deliveries'] || map['lifetime'] || '1318').replace(/[^0-9]/g, ''), 10) || 1318;
+    // Also incorporate live Vault ratings or newly added shift deliveries beyond baseline 1224
+    if (liveVaultData && liveVaultData.ratings && Number(liveVaultData.ratings.lifetime) > lifetimeNum) {
+        lifetimeNum = Number(liveVaultData.ratings.lifetime);
+    }
+    if (liveTotalDeliveries > 1224) {
+        const expectedMinLifetime = 1318 + (liveTotalDeliveries - 1224);
+        if (expectedMinLifetime > lifetimeNum) {
+            lifetimeNum = expectedMinLifetime;
+        }
+    }
+
+    const lifetimeFormatted = lifetimeNum.toLocaleString('en-US');
+    const customerRating = (liveVaultData && liveVaultData.ratings && liveVaultData.ratings.customerRating)
+        ? Number(liveVaultData.ratings.customerRating).toFixed(1)
+        : (map['customer rating'] || '5.0');
+    const overallRating = (liveVaultData && liveVaultData.ratings && liveVaultData.ratings.overallRating)
+        ? String(liveVaultData.ratings.overallRating)
+        : (map['overall dasher rating'] || '100');
+
     if (custRatingEl) custRatingEl.textContent = `★ ${customerRating}`;
-    if (overallRatingEl) overallRatingEl.textContent = `${overallRating}%`;
-    if (lifetimeEl) lifetimeEl.textContent = lifetime;
+    if (overallRatingEl) overallRatingEl.textContent = `${String(overallRating).replace(/%/g, '')}%`;
+    if (lifetimeEl) lifetimeEl.textContent = lifetimeFormatted;
 
     const fiveStars = parseInt(map['5 stars'] || '0') || 100;
     const fourStars = parseInt(map['4 stars'] || '0') || 0;
@@ -853,7 +929,7 @@ function renderRatings(headers, values) {
     const twoStars = parseInt(map['2 stars'] || '0') || 0;
     const oneStar = parseInt(map["1 star's"] || map['1 star'] || '0') || 0;
 
-    latestRatingsState.lifetime = parseInt(String(lifetime).replace(/[^0-9]/g, '')) || 1114;
+    latestRatingsState.lifetime = lifetimeNum;
     latestRatingsState.customerRating = parseFloat(customerRating) || 5.0;
     latestRatingsState.overallRating = parseInt(String(overallRating).replace(/[^0-9]/g, '')) || 100;
     latestRatingsState.stars5 = fiveStars;
@@ -900,11 +976,14 @@ function formatTitle(title) {
 function renderFeedback(headers, values) {
     const grid = document.getElementById('feedbackGrid');
     if (!grid || !headers || !values) return;
-    
+
+    const cleanHeaders = headers.map(h => (h || '').trim()).filter(h => h !== '');
+    const cleanValues = values.map(v => (v || '').trim()).filter(v => v !== '');
+
     let html = '';
-    for (let i = 0; i < headers.length; i++) {
-        const rawTitle = (headers[i] || '').trim();
-        const val = (values[i] || '0').trim();
+    for (let i = 0; i < cleanHeaders.length; i++) {
+        const rawTitle = cleanHeaders[i];
+        const val = cleanValues[i] || '0';
         if (!rawTitle) continue;
 
         const title = formatTitle(rawTitle);
@@ -2411,6 +2490,16 @@ async function submitShiftForm(event) {
             liveVaultData.shifts.push(json.shift);
             if (!liveVaultData.years.includes(json.shift.year)) {
                 liveVaultData.years.push(json.shift.year);
+            }
+            if (json.updatedLifetime) {
+                if (!liveVaultData.ratings) liveVaultData.ratings = {};
+                liveVaultData.ratings.lifetime = Number(json.updatedLifetime);
+                latestRatingsState.lifetime = Number(json.updatedLifetime);
+            } else if (Number(json.shift.deliveries) > 0) {
+                const newLife = (latestRatingsState.lifetime || 1318) + Number(json.shift.deliveries);
+                if (!liveVaultData.ratings) liveVaultData.ratings = {};
+                liveVaultData.ratings.lifetime = newLife;
+                latestRatingsState.lifetime = newLife;
             }
             try {
                 localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData));

@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.2.1] - 2026-11-07
+### Fixed
+- Fixed real-time Total Deliveries sync after logging shifts.
+- Fixed Lifetime Deliveries column offset on Platinum card.
+- Added automatic Lifetime Deliveries increment on shift save.
+- Bypassed Google CSV cache using live Vault shift totals.
+
 ## [4.2.0] - 2026-11-07
 ### Added
 - Added multi-row bulk entry for Gas Fill-Ups.
