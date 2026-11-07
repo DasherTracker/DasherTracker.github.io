@@ -1,9 +1,9 @@
 /* ==========================================================================
-   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v4.1.1)
+   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v4.2.0)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
-const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbw92GGI-eopNMV4PZ19a3uNbgW9yeeCWgRhCDDAGV7WvlWmktM7OaGo7tTtPWhjulw/exec';
+const API_BASE_URL = 'https://script.google.com/macros/s/AKfycby-OPzWiYMwIObo-tVhbOXJ95r47ohn_aZUn-7AZz54dueFQqJY6ZTHtJaAcrExZ2g/exec';
 const EXPENSES_API_URL = `${API_BASE_URL}?action=getExpenses`;
 const VAULT_API_URL = `${API_BASE_URL}?action=getVaultData`;
 const FIREBASE_DB_URL = 'https://dasher-tracker-hq-default-rtdb.firebaseio.com';
@@ -1869,7 +1869,113 @@ async function handleAdminGoogleSignIn(event) {
     }
 }
 
-/* --- 3. + Add Data to Vault Modal & Live Calculators --- */
+/* --- 3. + Add Data to Vault Modal, Clean Resets & Live Bulk Calculators --- */
+let activeGasStationInputEl = null;
+
+function getCurrentLocalDateAndIso() {
+    const now = new Date();
+    const tzOffsetMs = now.getTimezoneOffset() * 60000;
+    const localIso = new Date(now.getTime() - tzOffsetMs).toISOString().slice(0, 16);
+    const localDate = localIso.slice(0, 10);
+    return { localIso, localDate };
+}
+
+function resetShiftFormClean() {
+    const form = document.getElementById('hqFormShift');
+    if (form) form.reset();
+
+    const { localIso } = getCurrentLocalDateAndIso();
+    const setVal = (id, v) => {
+        const el = document.getElementById(id);
+        if (el) el.value = v;
+    };
+    setVal('shiftStartInput', localIso);
+    setVal('shiftEndInput', localIso);
+    setVal('shiftActiveHoursInput', '');
+    setVal('shiftMilesInput', '');
+    setVal('shiftDeliveriesInput', '');
+    setVal('shiftNoTipsInput', '0');
+    setVal('shiftBasePayInput', '');
+    setVal('shiftTipsInput', '');
+    setVal('shiftCashTipsInput', '0.00');
+
+    // Reset Misc Pay rows back to 1 clean row
+    const miscContainer = document.getElementById('miscPayRowsContainer');
+    if (miscContainer) {
+        const rows = Array.from(miscContainer.querySelectorAll('.misc-pay-row'));
+        rows.forEach((r, idx) => {
+            if (idx === 0) {
+                const sel = r.querySelector('.misc-type-select');
+                const amt = r.querySelector('.misc-amount-input');
+                const note = r.querySelector('.misc-note-input');
+                if (sel) sel.value = '';
+                if (amt) amt.value = '0.00';
+                if (note) note.value = '';
+            } else {
+                r.remove();
+            }
+        });
+    }
+    recalcShiftPreview();
+}
+
+function resetGasFormClean() {
+    const form = document.getElementById('hqFormGas');
+    if (form) form.reset();
+
+    const { localDate } = getCurrentLocalDateAndIso();
+    const container = document.getElementById('gasRowsContainer');
+    if (container) {
+        const rows = Array.from(container.querySelectorAll('.gas-entry-row'));
+        rows.forEach((r, idx) => {
+            if (idx === 0) {
+                const d = r.querySelector('.gas-date-input');
+                const s = r.querySelector('.gas-station-input');
+                const p = r.querySelector('.gas-price-input');
+                const g = r.querySelector('.gas-gallons-input');
+                const t = r.querySelector('.gas-total-input');
+                if (d) d.value = localDate;
+                if (s) s.value = '';
+                if (p) p.value = '';
+                if (g) g.value = '';
+                if (t) t.value = '';
+            } else {
+                r.remove();
+            }
+        });
+    }
+    activeGasStationInputEl = null;
+    recalcGasPreview();
+}
+
+function resetExpenseFormClean() {
+    const form = document.getElementById('hqFormExpense');
+    if (form) form.reset();
+
+    const { localDate } = getCurrentLocalDateAndIso();
+    const container = document.getElementById('expenseRowsContainer');
+    if (container) {
+        const rows = Array.from(container.querySelectorAll('.expense-entry-row'));
+        rows.forEach((r, idx) => {
+            if (idx === 0) {
+                const d = r.querySelector('.exp-date-input');
+                const c = r.querySelector('.exp-category-input');
+                const n = r.querySelector('.exp-name-input');
+                const desc = r.querySelector('.exp-desc-input');
+                const cost = r.querySelector('.exp-cost-input');
+                if (d) d.value = localDate;
+                if (c) c.value = 'Gear';
+                if (n) n.value = '';
+                if (desc) desc.value = '';
+                if (cost) cost.value = '';
+            } else {
+                r.remove();
+            }
+        });
+    }
+    recalcExpensePreview();
+}
+
 async function openAddDataModal(defaultTab = 'shift') {
     if (!currentAdminUser || !(await isAuthorizedAdminEmail(currentAdminUser.email))) {
         openAdminAuthModal();
@@ -1879,26 +1985,12 @@ async function openAddDataModal(defaultTab = 'shift') {
     const overlay = document.getElementById('addDataModalOverlay');
     if (overlay) overlay.style.display = 'flex';
 
-    // Pre-fill defaults
-    const now = new Date();
-    const tzOffsetMs = now.getTimezoneOffset() * 60000;
-    const localIso = new Date(now.getTime() - tzOffsetMs).toISOString().slice(0, 16);
-    const localDate = localIso.slice(0, 10);
-
-    const startInput = document.getElementById('shiftStartInput');
-    const endInput = document.getElementById('shiftEndInput');
-    if (startInput && !startInput.value) startInput.value = localIso;
-    if (endInput && !endInput.value) endInput.value = localIso;
-
-    const gasDate = document.getElementById('gasDateInput');
-    if (gasDate && !gasDate.value) gasDate.value = localDate;
-
-    const expDate = document.getElementById('expDateInput');
-    if (expDate && !expDate.value) expDate.value = localDate;
-
+    // Always provide a fresh, clean Add Data form so the user can immediately enter a new shift, gas fill-up, or expense
+    resetShiftFormClean();
+    resetGasFormClean();
+    resetExpenseFormClean();
     prefillRatingsFormInputs();
     switchAddDataTab(defaultTab);
-    recalcShiftPreview();
 }
 
 function closeAddDataModal() {
@@ -2053,26 +2145,211 @@ function recalcShiftPreview() {
     };
 }
 
+/* --- Multi-Row Bulk Gas Entry Builders & Calculators --- */
+function setActiveGasRow(inputEl) {
+    activeGasStationInputEl = inputEl;
+}
+
 function setGasStation(name) {
-    const input = document.getElementById('gasStationInput');
-    if (input) input.value = name;
+    if (activeGasStationInputEl && document.body.contains(activeGasStationInputEl)) {
+        activeGasStationInputEl.value = name;
+        recalcGasPreview();
+        return;
+    }
+    const allStationInputs = document.querySelectorAll('#gasRowsContainer .gas-station-input');
+    for (let i = 0; i < allStationInputs.length; i++) {
+        if (!allStationInputs[i].value.trim()) {
+            allStationInputs[i].value = name;
+            recalcGasPreview();
+            return;
+        }
+    }
+    if (allStationInputs.length > 0) {
+        allStationInputs[allStationInputs.length - 1].value = name;
+        recalcGasPreview();
+    }
+}
+
+function addGasEntryRow() {
+    const container = document.getElementById('gasRowsContainer');
+    if (!container) return;
+    const idx = container.children.length;
+    const { localDate } = getCurrentLocalDateAndIso();
+    // Inherit date from previous row if available
+    const prevDateInputs = container.querySelectorAll('.gas-date-input');
+    const defaultDate = (prevDateInputs.length > 0 && prevDateInputs[prevDateInputs.length - 1].value)
+        ? prevDateInputs[prevDateInputs.length - 1].value
+        : localDate;
+
+    const row = document.createElement('div');
+    row.className = 'bulk-entry-row gas-entry-row';
+    row.setAttribute('data-row-idx', idx);
+    row.innerHTML = `
+        <div class="hq-field-group">
+            <label>Fill-Up Date</label>
+            <input type="date" class="hq-input gas-date-input" value="${defaultDate}" required oninput="recalcGasPreview()">
+        </div>
+        <div class="hq-field-group">
+            <label>Station / Where</label>
+            <input type="text" class="hq-input gas-station-input" placeholder="e.g. Costco, Astro 239" required onfocus="setActiveGasRow(this)">
+        </div>
+        <div class="hq-field-group">
+            <label>Price / Gal ($)</label>
+            <input type="number" step="0.001" min="0" class="hq-input gas-price-input" placeholder="e.g. 4.50" required oninput="recalcGasRow(this, 'price')">
+        </div>
+        <div class="hq-field-group">
+            <label>Gallons (#)</label>
+            <input type="number" step="0.001" min="0" class="hq-input gas-gallons-input" placeholder="e.g. 13.672" required oninput="recalcGasRow(this, 'gallons')">
+        </div>
+        <div class="hq-field-group">
+            <label>Total Cost ($)</label>
+            <input type="number" step="0.01" min="0" class="hq-input gas-total-input" placeholder="Auto-calc" required oninput="recalcGasRow(this, 'total')">
+        </div>
+        <button type="button" class="remove-misc-row-btn" onclick="this.parentElement.remove(); recalcGasPreview();" title="Remove Gas Row">&times;</button>
+    `;
+    container.appendChild(row);
+    recalcGasPreview();
+}
+
+function addBulkGasRows(count = 5) {
+    for (let i = 0; i < count; i++) {
+        addGasEntryRow();
+    }
+}
+
+function recalcGasRow(inputEl, changedField) {
+    const row = inputEl ? inputEl.closest('.gas-entry-row') : document.querySelector('#gasRowsContainer .gas-entry-row');
+    if (row) {
+        const priceEl = row.querySelector('.gas-price-input');
+        const galsEl = row.querySelector('.gas-gallons-input');
+        const totalEl = row.querySelector('.gas-total-input');
+        if (priceEl && galsEl && totalEl) {
+            const price = parseFloat(priceEl.value) || 0;
+            const gals = parseFloat(galsEl.value) || 0;
+            const total = parseFloat(totalEl.value) || 0;
+
+            if ((changedField === 'price' || changedField === 'gallons') && price > 0 && gals > 0) {
+                totalEl.value = (price * gals).toFixed(2);
+            } else if (changedField === 'total' && total > 0 && price > 0 && gals === 0) {
+                galsEl.value = (total / price).toFixed(3);
+            }
+        }
+    }
+    recalcGasPreview();
 }
 
 function recalcGasPreview(changedField) {
-    const priceEl = document.getElementById('gasPriceInput');
-    const galsEl = document.getElementById('gasGallonsInput');
-    const totalEl = document.getElementById('gasTotalInput');
-    if (!priceEl || !galsEl || !totalEl) return;
-
-    const price = parseFloat(priceEl.value) || 0;
-    const gals = parseFloat(galsEl.value) || 0;
-    const total = parseFloat(totalEl.value) || 0;
-
-    if ((changedField === 'price' || changedField === 'gallons') && price > 0 && gals > 0) {
-        totalEl.value = (price * gals).toFixed(2);
-    } else if (changedField === 'total' && total > 0 && price > 0 && gals === 0) {
-        galsEl.value = (total / price).toFixed(3);
+    // Support legacy single-row call if changedField passed directly
+    if (changedField) {
+        const firstRow = document.querySelector('#gasRowsContainer .gas-entry-row');
+        if (firstRow) {
+            const targetInput = firstRow.querySelector(`.gas-${changedField}-input`);
+            if (targetInput) {
+                recalcGasRow(targetInput, changedField);
+                return;
+            }
+        }
     }
+
+    const rows = document.querySelectorAll('#gasRowsContainer .gas-entry-row');
+    let totalGallons = 0;
+    let totalCost = 0;
+    let validCount = 0;
+
+    rows.forEach(r => {
+        const g = parseFloat((r.querySelector('.gas-gallons-input') || {}).value) || 0;
+        const t = parseFloat((r.querySelector('.gas-total-input') || {}).value) || 0;
+        const s = ((r.querySelector('.gas-station-input') || {}).value || '').trim();
+        totalGallons += g;
+        totalCost += t;
+        if (t > 0 || g > 0 || s) validCount++;
+    });
+
+    const displayCount = Math.max(rows.length, validCount);
+    const countEl = document.getElementById('previewGasCount');
+    const galsEl = document.getElementById('previewGasGallons');
+    const costEl = document.getElementById('previewGasTotalCost');
+
+    if (countEl) countEl.textContent = `${displayCount} Fill-Up${displayCount === 1 ? '' : 's'}`;
+    if (galsEl) galsEl.textContent = `${totalGallons.toFixed(3)} gal`;
+    if (costEl) costEl.textContent = `$${totalCost.toFixed(2)}`;
+}
+
+/* --- Multi-Row Bulk Expense Entry Builders & Calculators --- */
+function addExpenseEntryRow() {
+    const container = document.getElementById('expenseRowsContainer');
+    if (!container) return;
+    const idx = container.children.length;
+    const { localDate } = getCurrentLocalDateAndIso();
+    const prevDateInputs = container.querySelectorAll('.exp-date-input');
+    const defaultDate = (prevDateInputs.length > 0 && prevDateInputs[prevDateInputs.length - 1].value)
+        ? prevDateInputs[prevDateInputs.length - 1].value
+        : localDate;
+
+    const row = document.createElement('div');
+    row.className = 'bulk-entry-row expense-entry-row';
+    row.setAttribute('data-row-idx', idx);
+    row.innerHTML = `
+        <div class="hq-field-group">
+            <label>Date</label>
+            <input type="date" class="hq-input exp-date-input" value="${defaultDate}" required oninput="recalcExpensePreview()">
+        </div>
+        <div class="hq-field-group">
+            <label>Category (Col B)</label>
+            <select class="hq-select exp-category-input" required onchange="recalcExpensePreview()">
+                <option value="Gear">🎒 Gear & Supplies</option>
+                <option value="Vehicle Maintenance">🛞 Vehicle Maintenance</option>
+            </select>
+        </div>
+        <div class="hq-field-group">
+            <label>Item / Service Name</label>
+            <input type="text" class="hq-input exp-name-input" placeholder="e.g. Insulated Bag or Oil Change" required oninput="recalcExpensePreview()">
+        </div>
+        <div class="hq-field-group">
+            <label>Description / Notes</label>
+            <input type="text" class="hq-input exp-desc-input" placeholder="e.g. Mobil 1 0W-20 & filter" oninput="recalcExpensePreview()">
+        </div>
+        <div class="hq-field-group">
+            <label>Cost ($)</label>
+            <input type="number" step="0.01" min="0" class="hq-input exp-cost-input" placeholder="e.g. 45.00" required oninput="recalcExpensePreview()">
+        </div>
+        <button type="button" class="remove-misc-row-btn" onclick="this.parentElement.remove(); recalcExpensePreview();" title="Remove Expense Row">&times;</button>
+    `;
+    container.appendChild(row);
+    recalcExpensePreview();
+}
+
+function addBulkExpenseRows(count = 5) {
+    for (let i = 0; i < count; i++) {
+        addExpenseEntryRow();
+    }
+}
+
+function recalcExpensePreview() {
+    const rows = document.querySelectorAll('#expenseRowsContainer .expense-entry-row');
+    let gearSub = 0;
+    let maintSub = 0;
+
+    rows.forEach(r => {
+        const cat = ((r.querySelector('.exp-category-input') || {}).value || 'Gear').trim();
+        const cost = parseFloat((r.querySelector('.exp-cost-input') || {}).value) || 0;
+        if (cat.toLowerCase().includes('maint')) {
+            maintSub += cost;
+        } else {
+            gearSub += cost;
+        }
+    });
+
+    const combined = gearSub + maintSub;
+    const count = rows.length;
+
+    const gearEl = document.getElementById('previewExpGearTotal');
+    const maintEl = document.getElementById('previewExpMaintTotal');
+    const combEl = document.getElementById('previewExpCombinedTotal');
+
+    if (gearEl) gearEl.textContent = `$${gearSub.toFixed(2)}`;
+    if (maintEl) maintEl.textContent = `$${maintSub.toFixed(2)}`;
+    if (combEl) combEl.textContent = `$${combined.toFixed(2)} (${count} Item${count === 1 ? '' : 's'})`;
 }
 
 function prefillRatingsFormInputs() {
@@ -2095,7 +2372,7 @@ function prefillRatingsFormInputs() {
     setVal('compAboveInput', latestRatingsState.aboveBeyond);
 }
 
-/* --- 4. Vault API Submit Handlers --- */
+/* --- 4. Vault API Submit Handlers (Single & Bulk) --- */
 async function submitShiftForm(event) {
     event.preventDefault();
     if (!currentAdminUser) return openAdminAuthModal();
@@ -2153,7 +2430,8 @@ async function submitShiftForm(event) {
             }
 
             showHqToast(`Shift ($${Number(json.shift.total).toFixed(2)}) saved to ${json.shift.month} ${json.shift.year} Vault!`);
-            document.getElementById('hqFormShift').reset();
+            // Reset Shift form completely clean and keep modal ready or close cleanly
+            resetShiftFormClean();
             closeAddDataModal();
         } else {
             showHqToast((json && json.error) || 'Could not save shift.', true);
@@ -2170,28 +2448,51 @@ async function submitGasForm(event) {
     event.preventDefault();
     if (!currentAdminUser) return openAdminAuthModal();
 
+    const rows = Array.from(document.querySelectorAll('#gasRowsContainer .gas-entry-row'));
+    const entries = rows.map(r => ({
+        date: (r.querySelector('.gas-date-input') || {}).value || '',
+        station: ((r.querySelector('.gas-station-input') || {}).value || '').trim(),
+        price: (r.querySelector('.gas-price-input') || {}).value || '0',
+        gallons: (r.querySelector('.gas-gallons-input') || {}).value || '0',
+        total: (r.querySelector('.gas-total-input') || {}).value || '0'
+    })).filter(e => e.station && (parseFloat(e.total) > 0 || parseFloat(e.gallons) > 0));
+
+    if (entries.length === 0) {
+        showHqToast('Please enter at least one valid gas fill-up.', true);
+        return;
+    }
+
     const btn = document.getElementById('submitGasBtn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Saving Fill-Up...'; }
+    if (btn) { btn.disabled = true; btn.textContent = `Saving ${entries.length} Fill-Up(s)...`; }
 
     try {
         const params = new URLSearchParams({
-            action: 'addGas',
+            action: entries.length > 1 ? 'addGasBulk' : 'addGas',
             adminEmail: currentAdminUser.email,
-            date: document.getElementById('gasDateInput').value,
-            station: document.getElementById('gasStationInput').value,
-            price: document.getElementById('gasPriceInput').value,
-            gallons: document.getElementById('gasGallonsInput').value,
-            total: document.getElementById('gasTotalInput').value
+            date: entries[0].date,
+            station: entries[0].station,
+            price: entries[0].price,
+            gallons: entries[0].gallons,
+            total: entries[0].total,
+            entriesJson: JSON.stringify(entries)
         });
 
         const res = await fetch(`${API_BASE_URL}?${params.toString()}`);
         const json = await res.json();
 
-        if (json && json.success && json.gas) {
-            liveVaultData.gas.push(json.gas);
-            if (!liveVaultData.years.includes(json.gas.year)) {
-                liveVaultData.years.push(json.gas.year);
-            }
+        const savedList = (json && Array.isArray(json.gasItems))
+            ? json.gasItems
+            : (json && json.gas ? [json.gas] : []);
+
+        if (json && json.success && savedList.length > 0) {
+            savedList.forEach(g => {
+                liveVaultData.gas.push(g);
+                if (!liveVaultData.years.includes(g.year)) {
+                    liveVaultData.years.push(g.year);
+                }
+                expandedMonths[g.month] = true;
+            });
+
             try {
                 localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData));
                 fetch(`${FIREBASE_DB_URL}/vault.json`, {
@@ -2201,20 +2502,20 @@ async function submitGasForm(event) {
                 }).catch(() => {});
             } catch (e) {}
             renderVaultYearSelectorPills();
-            expandedMonths[json.gas.month] = true;
 
             if (cachedRawCsvData) processData(cachedRawCsvData);
-            showHqToast(`Gas fill-up ($${Number(json.gas.total).toFixed(2)} at ${json.gas.station}) saved to Vault!`);
-            document.getElementById('hqFormGas').reset();
+            const totalSavedDollar = savedList.reduce((acc, g) => acc + (Number(g.total) || 0), 0);
+            showHqToast(`${savedList.length} Gas Fill-Up(s) ($${totalSavedDollar.toFixed(2)}) saved to Vault!`);
+            resetGasFormClean();
             closeAddDataModal();
         } else {
-            showHqToast((json && json.error) || 'Could not save gas fill-up.', true);
+            showHqToast((json && json.error) || 'Could not save gas fill-up(s).', true);
         }
     } catch (err) {
         console.error('Error submitting gas:', err);
-        showHqToast('Network error while saving gas fill-up.', true);
+        showHqToast('Network error while saving gas fill-up(s).', true);
     } finally {
-        if (btn) { btn.disabled = false; btn.textContent = '⛽ Save Gas Fill-Up to Vault'; }
+        if (btn) { btn.disabled = false; btn.textContent = '⛽ Save Gas Fill-Up(s) to Vault'; }
     }
 }
 
@@ -2222,26 +2523,45 @@ async function submitExpenseForm(event) {
     event.preventDefault();
     if (!currentAdminUser) return openAdminAuthModal();
 
+    const rows = Array.from(document.querySelectorAll('#expenseRowsContainer .expense-entry-row'));
+    const entries = rows.map(r => ({
+        date: (r.querySelector('.exp-date-input') || {}).value || '',
+        category: (r.querySelector('.exp-category-input') || {}).value || 'Gear',
+        name: ((r.querySelector('.exp-name-input') || {}).value || '').trim(),
+        desc: ((r.querySelector('.exp-desc-input') || {}).value || '').trim(),
+        cost: (r.querySelector('.exp-cost-input') || {}).value || '0'
+    })).filter(e => e.name && parseFloat(e.cost) >= 0);
+
+    if (entries.length === 0) {
+        showHqToast('Please enter at least one valid expense item.', true);
+        return;
+    }
+
     const btn = document.getElementById('submitExpenseBtn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Saving Expense...'; }
+    if (btn) { btn.disabled = true; btn.textContent = `Saving ${entries.length} Expense(s)...`; }
 
     try {
         const params = new URLSearchParams({
-            action: 'addExpense',
+            action: entries.length > 1 ? 'addExpenseBulk' : 'addExpense',
             adminEmail: currentAdminUser.email,
-            date: document.getElementById('expDateInput').value,
-            category: document.getElementById('expCategoryInput').value,
-            name: document.getElementById('expNameInput').value,
-            desc: document.getElementById('expDescInput').value,
-            cost: document.getElementById('expCostInput').value
+            date: entries[0].date,
+            category: entries[0].category,
+            name: entries[0].name,
+            desc: entries[0].desc,
+            cost: entries[0].cost,
+            entriesJson: JSON.stringify(entries)
         });
 
         const res = await fetch(`${API_BASE_URL}?${params.toString()}`);
         const json = await res.json();
 
-        if (json && json.success && json.item) {
+        const savedItems = (json && Array.isArray(json.items))
+            ? json.items
+            : (json && json.item ? [json.item] : []);
+
+        if (json && json.success && savedItems.length > 0) {
             if (!Array.isArray(liveExpensesData)) liveExpensesData = [];
-            liveExpensesData.push(json.item);
+            savedItems.forEach(it => liveExpensesData.push(it));
             liveVaultData.expenses = liveExpensesData;
             try {
                 localStorage.setItem('dasher_live_expenses_cache', JSON.stringify(liveExpensesData));
@@ -2252,17 +2572,18 @@ async function submitExpenseForm(event) {
                 }).catch(() => {});
             } catch (e) {}
             renderItemizedLedger(cachedSummaryEarnings || 0, cachedSummaryGas || 0);
-            showHqToast(`Expense "${json.item.name}" ($${Number(json.item.cost).toFixed(2)}) added to Ledger!`);
-            document.getElementById('hqFormExpense').reset();
+            const totalSavedDollar = savedItems.reduce((acc, it) => acc + (Number(it.cost) || 0), 0);
+            showHqToast(`${savedItems.length} Expense(s) ($${totalSavedDollar.toFixed(2)}) added to Ledger!`);
+            resetExpenseFormClean();
             closeAddDataModal();
         } else {
-            showHqToast((json && json.error) || 'Could not save expense.', true);
+            showHqToast((json && json.error) || 'Could not save expense(s).', true);
         }
     } catch (err) {
         console.error('Error submitting expense:', err);
-        showHqToast('Network error while saving expense.', true);
+        showHqToast('Network error while saving expense(s).', true);
     } finally {
-        if (btn) { btn.disabled = false; btn.textContent = '🎒 Save Expense to Ledger'; }
+        if (btn) { btn.disabled = false; btn.textContent = '🎒 Save Expense(s) to Ledger'; }
     }
 }
 

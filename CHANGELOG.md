@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.2.0] - 2026-11-07
+### Added
+- Added multi-row bulk entry for Gas Fill-Ups.
+- Added multi-row bulk entry for Gear and Upkeep expenses.
+- Added Clean Clear buttons and auto-reset on Add Data modal.
+- Added batch Gas and Expense API sync in Apps Script.
+
 ## [4.1.1] - 2026-11-07
 ### Fixed
 - Fixed Google Sign-In popup on DasherTracker.web.app and GitHub.

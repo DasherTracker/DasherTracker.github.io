@@ -2392,6 +2392,98 @@ tfoot td {
     cursor: wait;
 }
 
+/* Bulk Gas & Expense Multi-Row Builder + Clean Clear Buttons (v4.2.0) */
+.bulk-entry-subcard {
+    background: linear-gradient(145deg, rgba(15, 23, 42, 0.92) 0%, rgba(8, 12, 20, 0.96) 100%);
+    border: 1px solid rgba(56, 189, 248, 0.28);
+    border-radius: var(--radius-md);
+    padding: 1.15rem 1.25rem;
+    margin-bottom: 1.15rem;
+}
+
+.expense-bulk-subcard {
+    border-color: rgba(16, 185, 129, 0.3);
+}
+
+.bulk-header-actions {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}
+
+.bulk-btn-cluster {
+    display: flex;
+    align-items: center;
+    gap: 0.45rem;
+    flex-wrap: wrap;
+}
+
+.bulk-five-btn {
+    background: rgba(56, 189, 248, 0.14);
+    border-color: rgba(56, 189, 248, 0.4);
+    color: #38bdf8;
+}
+
+.bulk-five-btn:hover {
+    background: rgba(56, 189, 248, 0.28);
+    color: #fff;
+}
+
+.bulk-rows-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    max-height: 360px;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+}
+
+.bulk-entry-row {
+    display: grid;
+    grid-template-columns: 1fr 1.35fr 0.85fr 0.85fr 0.95fr auto;
+    gap: 0.65rem;
+    align-items: end;
+    background: rgba(255, 255, 255, 0.025);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+    border-radius: var(--radius-sm);
+    padding: 0.65rem 0.75rem;
+}
+
+.expense-entry-row {
+    grid-template-columns: 0.95fr 1.15fr 1.35fr 1.45fr 0.85fr auto;
+}
+
+.bulk-summary-bar3 {
+    grid-template-columns: repeat(3, 1fr);
+}
+
+.hq-footer-btn-group {
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    flex-wrap: wrap;
+}
+
+.hq-clear-btn {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.16);
+    color: #cbd5e1;
+    padding: 0.72rem 1.15rem;
+    border-radius: var(--radius-md);
+    font-family: var(--font-heading);
+    font-size: 0.86rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.hq-clear-btn:hover {
+    background: rgba(244, 63, 94, 0.16);
+    border-color: rgba(244, 63, 94, 0.45);
+    color: #fff;
+}
+
 /* Toast Notification */
 .hq-toast-container {
     position: fixed;
@@ -2431,7 +2523,10 @@ tfoot td {
     .hq-form-grid-2,
     .hq-form-grid-5,
     .misc-pay-row,
-    .hq-live-preview-bar {
+    .bulk-entry-row,
+    .expense-entry-row,
+    .hq-live-preview-bar,
+    .bulk-summary-bar3 {
         grid-template-columns: 1fr;
     }
     .hq-modal-tabs {

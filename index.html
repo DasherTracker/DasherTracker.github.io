@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=4.1.1">
+    <link rel="stylesheet" href="styles.css?v=4.2.0">
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Chart.js for data visualization -->
@@ -498,7 +498,7 @@
 
         <!-- FOOTER -->
         <footer class="dashboard-footer">
-            <p>Dasher Tracker HQ <span class="version-badge">v4.1.1</span> • Multi-Year Delivery Vault & Tax Intelligence</p>
+            <p>Dasher Tracker HQ <span class="version-badge">v4.2.0</span> • Multi-Year Delivery Vault & Tax Intelligence</p>
         </footer>
     </main>
 
@@ -669,85 +669,158 @@
 
                     <div class="hq-modal-footer">
                         <span class="vault-target-indicator" id="shiftVaultTargetBadge">🏛️ Target: 2026 Vault</span>
-                        <button type="submit" id="submitShiftBtn" class="hq-submit-btn">🚀 Save Shift to Vault</button>
+                        <div class="hq-footer-btn-group">
+                            <button type="button" id="clearShiftFormBtn" class="hq-clear-btn" onclick="resetShiftFormClean()">🧹 Clear / New Shift</button>
+                            <button type="submit" id="submitShiftBtn" class="hq-submit-btn">🚀 Save Shift to Vault</button>
+                        </div>
                     </div>
                 </form>
 
-                <!-- TAB 2: LOG GAS FILL-UP -->
+                <!-- TAB 2: LOG GAS FILL-UP (SINGLE OR BULK MULTI-ROW BUILDER) -->
                 <form id="hqFormGas" class="hq-tab-pane" style="display: none;" onsubmit="submitGasForm(event)">
-                    <div class="hq-form-grid-2">
-                        <div class="hq-field-group">
-                            <label for="gasDateInput">Fill-Up Date</label>
-                            <input type="date" id="gasDateInput" class="hq-input" required oninput="recalcGasPreview()">
+                    <div class="bulk-entry-subcard gas-bulk-subcard">
+                        <div class="misc-pay-header">
+                            <div class="misc-pay-title-wrap">
+                                <span class="misc-badge-icon">⛽</span>
+                                <div>
+                                    <h4>Gas Fill-Up Log (Single or Bulk Entry)</h4>
+                                    <p>Enter one fill-up or click <strong>+ Add Gas Row</strong> / <strong>+ Add 5 Rows</strong> to log multiple gas receipts at once</p>
+                                </div>
+                            </div>
+                            <div class="bulk-header-actions">
+                                <div class="station-quick-chips" title="Click to fill Station on active gas row">
+                                    <button type="button" class="station-chip" onclick="setGasStation('Costco')">Costco</button>
+                                    <button type="button" class="station-chip" onclick="setGasStation('Astro 239')">Astro 239</button>
+                                    <button type="button" class="station-chip" onclick="setGasStation('Chevron')">Chevron</button>
+                                    <button type="button" class="station-chip" onclick="setGasStation('Shell')">Shell</button>
+                                    <button type="button" class="station-chip" onclick="setGasStation('ARCO')">ARCO</button>
+                                </div>
+                                <div class="bulk-btn-cluster">
+                                    <button type="button" class="add-misc-row-btn" id="addGasRowBtn" onclick="addGasEntryRow()">+ Add Gas Row</button>
+                                    <button type="button" class="add-misc-row-btn bulk-five-btn" id="addGas5RowsBtn" onclick="addBulkGasRows(5)">+ Add 5 Rows</button>
+                                </div>
+                            </div>
                         </div>
-                        <div class="hq-field-group">
-                            <label for="gasStationInput">Station / Where</label>
-                            <input type="text" id="gasStationInput" class="hq-input" placeholder="e.g. Costco, Astro 239, Chevron" required>
-                            <div class="station-quick-chips">
-                                <button type="button" class="station-chip" onclick="setGasStation('Costco')">Costco</button>
-                                <button type="button" class="station-chip" onclick="setGasStation('Astro 239')">Astro 239</button>
-                                <button type="button" class="station-chip" onclick="setGasStation('Chevron')">Chevron</button>
-                                <button type="button" class="station-chip" onclick="setGasStation('Shell')">Shell</button>
-                                <button type="button" class="station-chip" onclick="setGasStation('ARCO')">ARCO</button>
+
+                        <div id="gasRowsContainer" class="bulk-rows-container">
+                            <div class="bulk-entry-row gas-entry-row" data-row-idx="0">
+                                <div class="hq-field-group">
+                                    <label for="gasDateInput">Fill-Up Date</label>
+                                    <input type="date" id="gasDateInput" class="hq-input gas-date-input" required oninput="recalcGasPreview()">
+                                </div>
+                                <div class="hq-field-group">
+                                    <label for="gasStationInput">Station / Where</label>
+                                    <input type="text" id="gasStationInput" class="hq-input gas-station-input" placeholder="e.g. Costco, Astro 239" required onfocus="setActiveGasRow(this)">
+                                </div>
+                                <div class="hq-field-group">
+                                    <label for="gasPriceInput">Price / Gal ($)</label>
+                                    <input type="number" step="0.001" min="0" id="gasPriceInput" class="hq-input gas-price-input" placeholder="e.g. 4.50" required oninput="recalcGasRow(this, 'price')">
+                                </div>
+                                <div class="hq-field-group">
+                                    <label for="gasGallonsInput">Gallons (#)</label>
+                                    <input type="number" step="0.001" min="0" id="gasGallonsInput" class="hq-input gas-gallons-input" placeholder="e.g. 13.672" required oninput="recalcGasRow(this, 'gallons')">
+                                </div>
+                                <div class="hq-field-group">
+                                    <label for="gasTotalInput">Total Cost ($)</label>
+                                    <input type="number" step="0.01" min="0" id="gasTotalInput" class="hq-input gas-total-input" placeholder="Auto-calc" required oninput="recalcGasRow(this, 'total')">
+                                </div>
                             </div>
                         </div>
                     </div>
 
-                    <div class="hq-form-grid-3">
-                        <div class="hq-field-group">
-                            <label for="gasPriceInput">Price per Gallon ($)</label>
-                            <input type="number" step="0.001" min="0" id="gasPriceInput" class="hq-input" placeholder="e.g. 4.50" required oninput="recalcGasPreview('price')">
+                    <!-- LIVE BULK GAS SUMMARY BAR -->
+                    <div class="hq-live-preview-bar bulk-summary-bar3">
+                        <div class="preview-metric">
+                            <span class="preview-label">⛽ Fill-Ups Queued</span>
+                            <span class="preview-val cyan" id="previewGasCount">1 Fill-Up</span>
                         </div>
-                        <div class="hq-field-group">
-                            <label for="gasGallonsInput">Gallons Pumped (#)</label>
-                            <input type="number" step="0.001" min="0" id="gasGallonsInput" class="hq-input" placeholder="e.g. 13.672" required oninput="recalcGasPreview('gallons')">
+                        <div class="preview-metric">
+                            <span class="preview-label">🛢️ Total Gallons</span>
+                            <span class="preview-val amber" id="previewGasGallons">0.000 gal</span>
                         </div>
-                        <div class="hq-field-group">
-                            <label for="gasTotalInput">Total Gas Cost ($)</label>
-                            <input type="number" step="0.01" min="0" id="gasTotalInput" class="hq-input" placeholder="Auto-calculated" required oninput="recalcGasPreview('total')">
+                        <div class="preview-metric">
+                            <span class="preview-label">💸 Combined Gas Total</span>
+                            <span class="preview-val emerald" id="previewGasTotalCost">$0.00</span>
                         </div>
                     </div>
 
                     <div class="hq-modal-footer">
-                        <span class="vault-target-indicator" id="gasVaultTargetBadge">⛽ Syncs to Gas_Vault & Monthly Tab</span>
-                        <button type="submit" id="submitGasBtn" class="hq-submit-btn">⛽ Save Gas Fill-Up to Vault</button>
+                        <span class="vault-target-indicator" id="gasVaultTargetBadge">⛽ Syncs to Gas_Vault & Monthly Tabs</span>
+                        <div class="hq-footer-btn-group">
+                            <button type="button" id="clearGasFormBtn" class="hq-clear-btn" onclick="resetGasFormClean()">🧹 Clear Gas Rows</button>
+                            <button type="submit" id="submitGasBtn" class="hq-submit-btn">⛽ Save Gas Fill-Up(s) to Vault</button>
+                        </div>
                     </div>
                 </form>
 
-                <!-- TAB 3: LOG GEAR & VEHICLE UPKEEP -->
+                <!-- TAB 3: LOG GEAR & VEHICLE UPKEEP (SINGLE OR BULK MULTI-ROW BUILDER) -->
                 <form id="hqFormExpense" class="hq-tab-pane" style="display: none;" onsubmit="submitExpenseForm(event)">
-                    <div class="hq-form-grid-3">
-                        <div class="hq-field-group">
-                            <label for="expDateInput">Purchase / Service Date</label>
-                            <input type="date" id="expDateInput" class="hq-input" required>
+                    <div class="bulk-entry-subcard expense-bulk-subcard">
+                        <div class="misc-pay-header">
+                            <div class="misc-pay-title-wrap">
+                                <span class="misc-badge-icon">🎒</span>
+                                <div>
+                                    <h4>Gear & Vehicle Maintenance Ledger (Single or Bulk Entry)</h4>
+                                    <p>Enter one item or click <strong>+ Add Expense Row</strong> / <strong>+ Add 5 Rows</strong> to log multiple tax-deductible items in bulk</p>
+                                </div>
+                            </div>
+                            <div class="bulk-btn-cluster">
+                                <button type="button" class="add-misc-row-btn" id="addExpenseRowBtn" onclick="addExpenseEntryRow()">+ Add Expense Row</button>
+                                <button type="button" class="add-misc-row-btn bulk-five-btn" id="addExpense5RowsBtn" onclick="addBulkExpenseRows(5)">+ Add 5 Rows</button>
+                            </div>
                         </div>
-                        <div class="hq-field-group">
-                            <label for="expCategoryInput">Category (Col B Dropdown)</label>
-                            <select id="expCategoryInput" class="hq-select" required>
-                                <option value="Gear">🎒 Gear & Delivery Supplies</option>
-                                <option value="Vehicle Maintenance">🛞 Vehicle Maintenance & Upkeep</option>
-                            </select>
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="expCostInput">Out-of-Pocket Cost ($)</label>
-                            <input type="number" step="0.01" min="0" id="expCostInput" class="hq-input" placeholder="e.g. 45.00" required>
+
+                        <div id="expenseRowsContainer" class="bulk-rows-container">
+                            <div class="bulk-entry-row expense-entry-row" data-row-idx="0">
+                                <div class="hq-field-group">
+                                    <label for="expDateInput">Date</label>
+                                    <input type="date" id="expDateInput" class="hq-input exp-date-input" required oninput="recalcExpensePreview()">
+                                </div>
+                                <div class="hq-field-group">
+                                    <label for="expCategoryInput">Category (Col B)</label>
+                                    <select id="expCategoryInput" class="hq-select exp-category-input" required onchange="recalcExpensePreview()">
+                                        <option value="Gear">🎒 Gear & Supplies</option>
+                                        <option value="Vehicle Maintenance">🛞 Vehicle Maintenance</option>
+                                    </select>
+                                </div>
+                                <div class="hq-field-group">
+                                    <label for="expNameInput">Item / Service Name</label>
+                                    <input type="text" id="expNameInput" class="hq-input exp-name-input" placeholder="e.g. Insulated Bag or Oil Change" required oninput="recalcExpensePreview()">
+                                </div>
+                                <div class="hq-field-group">
+                                    <label for="expDescInput">Description / Notes</label>
+                                    <input type="text" id="expDescInput" class="hq-input exp-desc-input" placeholder="e.g. Mobil 1 0W-20 & filter" oninput="recalcExpensePreview()">
+                                </div>
+                                <div class="hq-field-group">
+                                    <label for="expCostInput">Cost ($)</label>
+                                    <input type="number" step="0.01" min="0" id="expCostInput" class="hq-input exp-cost-input" placeholder="e.g. 45.00" required oninput="recalcExpensePreview()">
+                                </div>
+                            </div>
                         </div>
                     </div>
 
-                    <div class="hq-form-grid-2">
-                        <div class="hq-field-group">
-                            <label for="expNameInput">Item / Service Name</label>
-                            <input type="text" id="expNameInput" class="hq-input" placeholder="e.g. Insulated Catering Bag or Synthetic Oil Change" required>
+                    <!-- LIVE BULK EXPENSE SUMMARY BAR -->
+                    <div class="hq-live-preview-bar bulk-summary-bar3">
+                        <div class="preview-metric">
+                            <span class="preview-label">🎒 Gear & Supplies Subtotal</span>
+                            <span class="preview-val cyan" id="previewExpGearTotal">$0.00</span>
                         </div>
-                        <div class="hq-field-group">
-                            <label for="expDescInput">Description / Warranty / Notes</label>
-                            <input type="text" id="expDescInput" class="hq-input" placeholder="e.g. Thermal pizza bag or Mobil 1 0W-20 & filter">
+                        <div class="preview-metric">
+                            <span class="preview-label">🛞 Vehicle Upkeep Subtotal</span>
+                            <span class="preview-val amber" id="previewExpMaintTotal">$0.00</span>
+                        </div>
+                        <div class="preview-metric">
+                            <span class="preview-label">🧾 Combined Deductible Total</span>
+                            <span class="preview-val emerald" id="previewExpCombinedTotal">$0.00 (1 Item)</span>
                         </div>
                     </div>
 
                     <div class="hq-modal-footer">
                         <span class="vault-target-indicator">🧾 100% Schedule C Deductible</span>
-                        <button type="submit" id="submitExpenseBtn" class="hq-submit-btn">🎒 Save Expense to Ledger</button>
+                        <div class="hq-footer-btn-group">
+                            <button type="button" id="clearExpenseFormBtn" class="hq-clear-btn" onclick="resetExpenseFormClean()">🧹 Clear Expense Rows</button>
+                            <button type="submit" id="submitExpenseBtn" class="hq-submit-btn">🎒 Save Expense(s) to Ledger</button>
+                        </div>
                     </div>
                 </form>
 
@@ -826,6 +899,6 @@
     <!-- TOAST NOTIFICATION CONTAINER -->
     <div id="hqToastContainer" class="hq-toast-container"></div>
 
-    <script src="script.js?v=4.1.1"></script>
+    <script src="script.js?v=4.2.0"></script>
 </body>
 </html>
