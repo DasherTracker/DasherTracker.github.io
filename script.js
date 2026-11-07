@@ -1,5 +1,5 @@
 /* ==========================================================================
-   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v4.1.0)
+   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v4.1.1)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
@@ -12,10 +12,10 @@ const CACHE_KEY = 'dasher_tracker_data_v15';
 const CACHE_TIME_KEY = 'dasher_tracker_time_v15';
 const VAULT_CACHE_KEY = 'dasher_tracker_vault_v15';
 const ADMIN_AUTH_STORAGE_KEY = 'dasher_hq_admin_auth_v2';
-const ADMIN_IDENTITY_HASH = '45d63bb318193d8cfcf6382975c8fa5438df4ba0fa766702863d485431c0969a';
+const ADMIN_IDENTITY_HASH = '9788f516fc5ba1be1edb34d62bceceb51ad979343df7d64d144b66e5293703e7';
 const IRS_MILEAGE_RATE = 0.67; // 2024-2026 IRS Standard Business Mileage Rate ($0.67/mi)
 
-// Dedicated Dasher Tracker Firebase Project Config (dasher-tracker-hq)
+// Dedicated Dasher Tracker Firebase Project Config (dasher-tracker-hq DB + Hosting)
 const DASHER_FIREBASE_CONFIG = {
     apiKey: "AIzaSyAG37Lqje4w_GAXj4hp6Tg9td2CZvAmFfc",
     authDomain: "dasher-tracker-hq.firebaseapp.com",
@@ -26,11 +26,39 @@ const DASHER_FIREBASE_CONFIG = {
     appId: "1:1093952301206:web:9b9e6824a2cbc866813ab7"
 };
 
+// Active Google OAuth Identity Provider Config (bdc-vault with dashertracker.web.app authorized)
+const DASHER_AUTH_CONFIG = {
+    apiKey: "AIzaSyDd-YKspjMz-lWUWCdBe1zplzNCDWsM1mA",
+    authDomain: "bdc-vault.firebaseapp.com",
+    projectId: "bdc-vault",
+    storageBucket: "bdc-vault.firebasestorage.app",
+    messagingSenderId: "119058571389",
+    appId: "1:119058571389:web:107cafd0ea4c19823cd114"
+};
+const GOOGLE_OAUTH_CLIENT_ID = "119058571389-1lamgkkr458n3haarhctrdp89ocg4q5e.apps.googleusercontent.com";
+
+let dasherAuthApp = null;
 try {
-    if (typeof firebase !== 'undefined' && (!firebase.apps || firebase.apps.length === 0)) {
-        firebase.initializeApp(DASHER_FIREBASE_CONFIG);
+    if (typeof firebase !== 'undefined') {
+        if (!firebase.apps || firebase.apps.length === 0) {
+            firebase.initializeApp(DASHER_FIREBASE_CONFIG);
+        }
+        dasherAuthApp = firebase.initializeApp(DASHER_AUTH_CONFIG, 'dasherAuth');
     }
 } catch (e) {}
+
+function getDasherAuthInstance() {
+    if (typeof firebase === 'undefined' || !firebase.auth) return null;
+    try {
+        if (!dasherAuthApp) {
+            const existing = (firebase.apps || []).find(a => a.name === 'dasherAuth');
+            dasherAuthApp = existing || firebase.initializeApp(DASHER_AUTH_CONFIG, 'dasherAuth');
+        }
+        return firebase.auth(dasherAuthApp);
+    } catch (e) {
+        return firebase.auth();
+    }
+}
 
 // Fallback Starter Gear & Upkeep Data
 const DASHER_GEAR_ITEMS = [
@@ -1670,6 +1698,31 @@ async function initAdminAuthState() {
             }
         }
     } catch (e) {}
+
+    // Also listen for active Firebase OAuth session or redirect result
+    try {
+        const authInst = getDasherAuthInstance();
+        if (authInst) {
+            authInst.getRedirectResult().then(async (res) => {
+                if (res && res.user && res.user.email) {
+                    if (await isAuthorizedAdminEmail(res.user.email)) {
+                        applyAdminUnlockedState(res.user.email, true);
+                    } else {
+                        authInst.signOut().catch(() => {});
+                    }
+                }
+            }).catch(() => {});
+
+            authInst.onAuthStateChanged(async (user) => {
+                if (user && user.email) {
+                    if (await isAuthorizedAdminEmail(user.email)) {
+                        applyAdminUnlockedState(user.email, false);
+                    }
+                }
+            });
+        }
+    } catch (e) {}
+
     applyAdminLockedState();
 }
 
@@ -1697,8 +1750,9 @@ function applyAdminLockedState() {
     currentAdminUser = null;
     try {
         localStorage.removeItem(ADMIN_AUTH_STORAGE_KEY);
-        if (typeof firebase !== 'undefined' && firebase.auth) {
-            firebase.auth().signOut().catch(() => {});
+        const authInst = getDasherAuthInstance();
+        if (authInst) {
+            authInst.signOut().catch(() => {});
         }
     } catch (e) {}
 
@@ -1726,22 +1780,62 @@ function closeAdminAuthModal() {
     if (overlay) overlay.style.display = 'none';
 }
 
+function signInWithGisTokenFallback(errEl) {
+    return new Promise((resolve) => {
+        if (window.google && window.google.accounts && window.google.accounts.oauth2) {
+            const tokenClient = window.google.accounts.oauth2.initTokenClient({
+                client_id: GOOGLE_OAUTH_CLIENT_ID,
+                scope: 'email profile openid',
+                prompt: 'select_account',
+                callback: async (tokenResponse) => {
+                    if (tokenResponse && tokenResponse.access_token) {
+                        try {
+                            const r = await fetch('https://www.googleapis.com/oauth2/v3/userinfo', {
+                                headers: { Authorization: `Bearer ${tokenResponse.access_token}` }
+                            });
+                            const info = await r.json();
+                            const email = (info && info.email) ? info.email : '';
+                            if (await isAuthorizedAdminEmail(email)) {
+                                applyAdminUnlockedState(email, true);
+                                resolve(true);
+                                return;
+                            } else {
+                                if (errEl) {
+                                    errEl.textContent = '🚫 Access Denied: Unauthorized Google account.';
+                                    errEl.style.display = 'block';
+                                }
+                                resolve(false);
+                                return;
+                            }
+                        } catch (e) {}
+                    }
+                    resolve(false);
+                }
+            });
+            tokenClient.requestAccessToken();
+        } else {
+            resolve(false);
+        }
+    });
+}
+
 async function handleAdminGoogleSignIn(event) {
     if (event) event.preventDefault();
     const errEl = document.getElementById('adminAuthErrorMsg');
     if (errEl) errEl.style.display = 'none';
 
+    const authInst = getDasherAuthInstance();
     try {
-        if (typeof firebase !== 'undefined' && firebase.auth) {
+        if (authInst && typeof firebase !== 'undefined' && firebase.auth) {
             const provider = new firebase.auth.GoogleAuthProvider();
             provider.setCustomParameters({ prompt: 'select_account' });
-            const result = await firebase.auth().signInWithPopup(provider);
+            const result = await authInst.signInWithPopup(provider);
             const email = (result && result.user && result.user.email) ? result.user.email : '';
             if (await isAuthorizedAdminEmail(email)) {
                 applyAdminUnlockedState(email, true);
                 return;
             } else {
-                await firebase.auth().signOut().catch(() => {});
+                await authInst.signOut().catch(() => {});
                 if (errEl) {
                     errEl.textContent = '🚫 Access Denied: Unauthorized Google account.';
                     errEl.style.display = 'block';
@@ -1750,9 +1844,23 @@ async function handleAdminGoogleSignIn(event) {
             }
         }
     } catch (popupErr) {
-        if (popupErr && popupErr.code === 'auth/popup-closed-by-user') {
+        if (popupErr && (popupErr.code === 'auth/popup-closed-by-user' || popupErr.code === 'auth/cancelled-popup-request')) {
             return;
         }
+        // Fallback 1: Google Identity Services OAuth2 popup if Firebase popup is blocked
+        const gisHandled = await signInWithGisTokenFallback(errEl);
+        if (gisHandled) return;
+
+        // Fallback 2: Full-page Google OAuth redirect if browser blocks all popups
+        if (authInst && popupErr && (popupErr.code === 'auth/popup-blocked' || popupErr.code === 'auth/operation-not-supported-in-this-environment')) {
+            try {
+                const provider = new firebase.auth.GoogleAuthProvider();
+                provider.setCustomParameters({ prompt: 'select_account' });
+                await authInst.signInWithRedirect(provider);
+                return;
+            } catch (e) {}
+        }
+
         console.warn('Google Auth popup notice:', popupErr);
         if (errEl) {
             errEl.textContent = '🚫 Google Sign-In failed or was blocked by browser popup settings.';

@@ -1,5 +1,12 @@
 # Changelog
 
+## [4.1.1] - 2026-11-07
+### Fixed
+- Fixed Google Sign-In popup on DasherTracker.web.app and GitHub.
+- Authorized Dasher Tracker domains on Firebase Google Auth provider.
+- Fixed SHA-256 admin identity hash for instant verification.
+- Added popup-blocked fallback for seamless admin login.
+
 ## [4.1.0] - 2026-11-04
 ### Added
 - Created dedicated Dasher Tracker Firebase project and database.
