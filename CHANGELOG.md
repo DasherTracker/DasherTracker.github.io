@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.0.0] - 2026-11-07
+### Added
+- Redesigned site into clean four-tab workspace dock.
+- Added Recent Vault Shifts snapshot on Executive Overview.
+- Synced Total and Lifetime Deliveries to 1,349 orders.
+- Separated Monthly, Tax, and Prestige views to eliminate clutter.
+
 ## [4.2.1] - 2026-11-07
 ### Fixed
 - Fixed real-time Total Deliveries sync after logging shifts.

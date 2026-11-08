@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=4.2.1">
+    <link rel="stylesheet" href="styles.css?v=5.0.0">
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Chart.js for data visualization -->
@@ -76,429 +76,500 @@
             </div>
         </header>
 
-        <!-- 1. FINANCIAL EXECUTIVE BENTO ROW -->
-        <section class="financial-bento-grid" id="financialBentoGrid">
-            <!-- Hero Card: Net Earnings -->
-            <div class="bento-card hero-kpi">
-                <div class="card-top-row">
-                    <span class="card-title">Net Profit (After Gas)</span>
-                    <div class="card-icon-badge">💰</div>
-                </div>
-                <div class="card-value-display hero-value" id="cardValNetProfit">$0.00</div>
-                <div class="card-subtext">
-                    <span class="profit-chip positive" id="cardProfitMarginChip">⚡ --% Margin</span>
-                    <span>Total Net Income</span>
-                </div>
-            </div>
+        <!-- CLEAN 4-TAB WORKSPACE NAVIGATION DOCK (v5.0.0) -->
+        <nav class="workspace-nav-dock" id="workspaceNavDock" aria-label="Dashboard Workspace Sections">
+            <button type="button" class="workspace-tab-btn active" id="wsTabBtnOverview" data-ws-tab="overview" onclick="switchWorkspaceTab('overview')">
+                <span class="ws-tab-icon">📊</span>
+                <span class="ws-tab-label">Executive Overview</span>
+            </button>
+            <button type="button" class="workspace-tab-btn" id="wsTabBtnMonthly" data-ws-tab="monthly" onclick="switchWorkspaceTab('monthly')">
+                <span class="ws-tab-icon">📅</span>
+                <span class="ws-tab-label">Monthly Vault &amp; Shifts</span>
+            </button>
+            <button type="button" class="workspace-tab-btn" id="wsTabBtnTax" data-ws-tab="tax" onclick="switchWorkspaceTab('tax')">
+                <span class="ws-tab-icon">🧾</span>
+                <span class="ws-tab-label">Tax &amp; Upkeep Ledger</span>
+            </button>
+            <button type="button" class="workspace-tab-btn" id="wsTabBtnPrestige" data-ws-tab="prestige" onclick="switchWorkspaceTab('prestige')">
+                <span class="ws-tab-icon">🛡️</span>
+                <span class="ws-tab-label">Tipping &amp; Prestige</span>
+            </button>
+        </nav>
 
-            <!-- Hourly Rate Card -->
-            <div class="bento-card">
-                <div class="card-top-row">
-                    <span class="card-title">Avg Hourly Rate</span>
-                    <div class="card-icon-badge">⏱️</div>
+        <!-- ==========================================================================
+             WORKSPACE VIEW 1: EXECUTIVE OVERVIEW (DEFAULT — CLEAN SINGLE SCREEN)
+             ========================================================================== -->
+        <div class="workspace-view-pane active" id="wsPaneOverview" data-ws-pane="overview">
+            <!-- 1. FINANCIAL EXECUTIVE BENTO ROW (4 CORE HERO KPIs) -->
+            <section class="financial-bento-grid four-col-bento" id="financialBentoGrid">
+                <!-- Hero Card: Net Earnings -->
+                <div class="bento-card hero-kpi">
+                    <div class="card-top-row">
+                        <span class="card-title">Net Profit (After Gas)</span>
+                        <div class="card-icon-badge">💰</div>
+                    </div>
+                    <div class="card-value-display hero-value" id="cardValNetProfit">$0.00</div>
+                    <div class="card-subtext">
+                        <span class="profit-chip positive" id="cardProfitMarginChip">⚡ --% Margin</span>
+                        <span>Total Net Income</span>
+                    </div>
                 </div>
-                <div class="card-value-display" id="cardValHourly" style="color: #38bdf8;">$0.00</div>
-                <div class="card-subtext">
-                    <span class="profit-chip neutral" id="cardTotalHoursChip">0 Dash Hrs</span>
-                    <span>Overall Rate</span>
-                </div>
-            </div>
 
-            <!-- Mileage & Gas Efficiency Card -->
-            <div class="bento-card">
-                <div class="card-top-row">
-                    <span class="card-title">Gas ROI Efficiency</span>
-                    <div class="card-icon-badge">⛽</div>
+                <!-- Hourly Rate Card -->
+                <div class="bento-card">
+                    <div class="card-top-row">
+                        <span class="card-title">Avg Hourly Rate</span>
+                        <div class="card-icon-badge">⏱️</div>
+                    </div>
+                    <div class="card-value-display" id="cardValHourly" style="color: #38bdf8;">$0.00</div>
+                    <div class="card-subtext">
+                        <span class="profit-chip neutral" id="cardTotalHoursChip">0 Dash Hrs</span>
+                        <span>Overall Rate</span>
+                    </div>
                 </div>
-                <div class="card-value-display" id="cardValGasRoi" style="color: #a855f7;">$0.00</div>
-                <div class="card-subtext">
-                    <span class="profit-chip expense" id="cardTotalMilesChip">0 Miles Tracked</span>
-                    <span>Return / $1 Gas</span>
-                </div>
-            </div>
-        </section>
 
-        <!-- 2. DEDICATED TIPPING & ORDER INTELLIGENCE SECTION -->
-        <section class="glass-panel tipping-intelligence-panel">
-            <div class="panel-header-row">
-                <div class="panel-title-group">
-                    <h2>Tipping & Order Intelligence</h2>
-                    <span class="panel-pill-badge" id="tippingSummaryBadge">Customer Generosity Breakdown</span>
-                </div>
-            </div>
-
-            <!-- Tipping KPI Cards -->
-            <div class="tipping-cards-grid">
-                <!-- Total Deliveries Card -->
-                <div class="tipping-card">
+                <!-- Total Deliveries Card (Quick Overview) -->
+                <div class="bento-card" onclick="switchWorkspaceTab('prestige')" style="cursor: pointer;" title="Click to view Tipping & Prestige Breakdown">
                     <div class="card-top-row">
                         <span class="card-title">Total Deliveries</span>
                         <div class="card-icon-badge">🛍️</div>
                     </div>
-                    <div class="card-value-display" id="cardValDeliveries">0</div>
+                    <div class="card-value-display" id="cardValOverviewDeliveries" style="color: #fbbf24;">0</div>
                     <div class="card-subtext">
-                        <span class="profit-chip neutral" id="cardAvgPerOrderChip">$0.00 / order</span>
-                        <span>Avg Gross Payout</span>
+                        <span class="profit-chip positive" id="cardOverviewTippedChip">🎁 --% Tipped</span>
+                        <span id="cardOverviewPerOrderText">View Tip Breakdown →</span>
                     </div>
                 </div>
 
-                <!-- Tipped Orders Card (Emerald) -->
-                <div class="tipping-card highlight-tipped">
+                <!-- Mileage & Gas / Tax Shield Efficiency Card -->
+                <div class="bento-card" onclick="switchWorkspaceTab('tax')" style="cursor: pointer;" title="Click to view IRS Tax Shield & Upkeep Ledger">
                     <div class="card-top-row">
-                        <span class="card-title">Tipped Orders</span>
-                        <div class="card-icon-badge emerald">🎁</div>
+                        <span class="card-title">Gas ROI &amp; Mileage</span>
+                        <div class="card-icon-badge">⛽</div>
                     </div>
-                    <div class="card-value-display emerald" id="cardValTippedOrders">0</div>
+                    <div class="card-value-display" id="cardValGasRoi" style="color: #a855f7;">$0.00</div>
                     <div class="card-subtext">
-                        <span class="profit-chip positive" id="cardTippedRateChip">--% Generosity</span>
-                        <span id="cardAvgTipAmountChip">Avg $0.00 / tip</span>
+                        <span class="profit-chip expense" id="cardTotalMilesChip">0 Miles Tracked</span>
+                        <span>Return / $1 Gas</span>
                     </div>
                 </div>
+            </section>
 
-                <!-- No-Tip Orders Card (Rose Alert) -->
-                <div class="tipping-card highlight-notipped">
-                    <div class="card-top-row">
-                        <span class="card-title">No-Tip Deliveries</span>
-                        <div class="card-icon-badge rose">🚫</div>
-                    </div>
-                    <div class="card-value-display rose" id="cardValNoTipOrders">0</div>
-                    <div class="card-subtext">
-                        <span class="profit-chip expense" id="cardNoTipRateChip">--% Stiff Rate</span>
-                        <span>Orders with $0 Tip</span>
+            <!-- SECONDARY FINANCIAL STRIP -->
+            <section class="secondary-kpi-grid">
+                <div class="mini-kpi-card">
+                    <div class="mini-icon-circle emerald">💵</div>
+                    <div class="mini-kpi-info">
+                        <span class="mini-kpi-label">Gross Earnings</span>
+                        <span class="mini-kpi-value" id="kpiGrossEarnings">$0.00</span>
                     </div>
                 </div>
-            </div>
+                <div class="mini-kpi-card">
+                    <div class="mini-icon-circle cyan">💳</div>
+                    <div class="mini-kpi-info">
+                        <span class="mini-kpi-label">Base Pay</span>
+                        <span class="mini-kpi-value" id="kpiBasePay">$0.00</span>
+                    </div>
+                </div>
+                <div class="mini-kpi-card">
+                    <div class="mini-icon-circle amber">🎁</div>
+                    <div class="mini-kpi-info">
+                        <span class="mini-kpi-label">Customer Tips (App + Cash)</span>
+                        <span class="mini-kpi-value" id="kpiTotalTips">$0.00</span>
+                    </div>
+                </div>
+                <div class="mini-kpi-card">
+                    <div class="mini-icon-circle rose">⛽</div>
+                    <div class="mini-kpi-info">
+                        <span class="mini-kpi-label">Gas Spent</span>
+                        <span class="mini-kpi-value" id="kpiTotalGas" style="color: #fb7185;">$0.00</span>
+                    </div>
+                </div>
+            </section>
 
-            <!-- Segmented Tipping Ratio Bar -->
-            <div class="tipping-ratio-container">
-                <div class="ratio-labels-row">
-                    <span class="ratio-label-tipped">
-                        <span class="ratio-dot emerald"></span> Tipped Orders: <strong id="ratioTippedText">0 (0.0%)</strong>
-                    </span>
-                    <span class="ratio-label-notipped">
-                        <span class="ratio-dot rose"></span> No-Tip Orders: <strong id="ratioNoTipText">0 (0.0%)</strong>
-                    </span>
-                </div>
-                <div class="ratio-track-bar">
-                    <div class="ratio-segment tipped" id="ratioSegmentTipped" style="width: 50%;"></div>
-                    <div class="ratio-segment notipped" id="ratioSegmentNoTip" style="width: 50%;"></div>
-                </div>
-            </div>
-        </section>
-
-        <!-- 3. DEDICATED TAX DEDUCTIONS & EXPENSE INTELLIGENCE SECTION -->
-        <section class="glass-panel deductions-intelligence-panel" id="deductionsSection">
-            <div class="panel-header-row">
-                <div class="panel-title-group">
-                    <h2>Tax Deductions & Expense Intelligence</h2>
-                    <span class="panel-pill-badge amber" id="deductionsRateBadge">IRS Standard Mileage ($0.67/mi)</span>
-                </div>
-            </div>
-
-            <!-- Deductions Cards Grid -->
-            <div class="deductions-cards-grid">
-                <!-- Hero Deduction Card -->
-                <div class="deduction-card highlight-amber">
-                    <div class="card-top-row">
-                        <span class="card-title">Est. IRS Tax Write-Off</span>
-                        <div class="card-icon-badge amber">🧾</div>
-                    </div>
-                    <div class="card-value-display amber" id="cardValTotalDeduction">$0.00</div>
-                    <div class="card-subtext">
-                        <span class="profit-chip positive" id="cardDeductionAdvantageChip">+ $0.00 over gas</span>
-                        <span>Standard Mileage Method</span>
-                    </div>
-                </div>
-
-                <!-- Estimated Cash Tax Savings -->
-                <div class="deduction-card highlight-emerald">
-                    <div class="card-top-row">
-                        <span class="card-title">Estimated Tax Shield</span>
-                        <div class="card-icon-badge emerald">🛡️</div>
-                    </div>
-                    <div class="card-value-display emerald" id="cardValTaxSavings">$0.00</div>
-                    <div class="card-subtext">
-                        <span class="profit-chip positive">~25% Effective Shield</span>
-                        <span>Estimated Cash Saved</span>
-                    </div>
-                </div>
-
-                <!-- Deduction per Order -->
-                <div class="deduction-card">
-                    <div class="card-top-row">
-                        <span class="card-title">Write-Off / Delivery</span>
-                        <div class="card-icon-badge cyan">📍</div>
-                    </div>
-                    <div class="card-value-display cyan" id="cardValDeductionPerOrder">$0.00</div>
-                    <div class="card-subtext">
-                        <span class="profit-chip neutral">Tax Offset per Drop</span>
-                        <span>Avg per Completed Order</span>
-                    </div>
-                </div>
-
-                <!-- Total Tracked Miles -->
-                <div class="deduction-card">
-                    <div class="card-top-row">
-                        <span class="card-title">Business Mileage</span>
-                        <div class="card-icon-badge purple">🚗</div>
-                    </div>
-                    <div class="card-value-display purple" id="cardValDeductionMiles">0 mi</div>
-                    <div class="card-subtext">
-                        <span class="profit-chip neutral" id="cardDeductionRateChip">@ $0.67 / mile</span>
-                        <span>Total Tracked Distance</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Mileage Deduction vs. Actual Gas Comparison Bar -->
-            <div class="deductions-comparison-container">
-                <div class="comparison-labels-row">
-                    <span class="comparison-label-deduction">
-                        <span class="comparison-dot amber"></span> Standard Mileage Deduction: <strong id="compDeductionText">$0.00 (0%)</strong>
-                    </span>
-                    <span class="comparison-label-gas">
-                        <span class="comparison-dot rose"></span> Actual Gas Expenses: <strong id="compGasText">$0.00 (0%)</strong>
-                    </span>
-                </div>
-                <div class="comparison-track-bar">
-                    <div class="comparison-segment deduction" id="compSegmentDeduction" style="width: 76%;"></div>
-                    <div class="comparison-segment gas" id="compSegmentGas" style="width: 24%;"></div>
-                </div>
-                <div class="comparison-summary-note" id="compSummaryNote">
-                    💡 <strong>Tax Tip:</strong> Using the IRS standard mileage rate ($0.67/mi) gives you a significantly larger write-off than actual gas receipts alone!
-                </div>
-            </div>
-        </section>
-
-        <!-- 4. ITEMIZED GEAR, SUPPLIES & VEHICLE UPKEEP LEDGER -->
-        <section class="ledger-panel" id="ledgerSection">
-            <div class="panel-header-row">
-                <div class="panel-title-group">
-                    <h2>Itemized Gear, Supplies & Vehicle Upkeep</h2>
-                    <span class="panel-pill-badge blue">Out-of-Pocket Ledger</span>
-                </div>
-                <div class="ledger-header-meta">
-                    <span class="ledger-tax-tag">🧾 100% Tax Deductible Gear & Maintenance</span>
-                </div>
-            </div>
-
-            <div class="ledger-cards-grid">
-                <!-- Card 1: Dasher Gear & Delivery Supplies -->
-                <div class="ledger-card">
-                    <div class="ledger-card-header">
-                        <div class="ledger-card-title-group">
-                            <span class="ledger-icon">🎒</span>
-                            <div>
-                                <h3>Dasher Gear & Delivery Supplies</h3>
-                                <p class="ledger-card-sub">Hot bags, catering packs & mobile dash equipment</p>
-                            </div>
+            <!-- OVERVIEW LOWER SPLIT: ANALYTICS CHART + RECENT SHIFT SNAPSHOT -->
+            <div class="overview-lower-split">
+                <!-- ANALYTICS VISUALIZER SECTION -->
+                <section class="glass-panel overview-chart-panel" style="margin-bottom: 0;">
+                    <div class="panel-header-row">
+                        <div class="panel-title-group">
+                            <h2>Analytics Visualizer</h2>
+                            <span class="panel-pill-badge" id="chartSubtitleBadge">Monthly Performance</span>
                         </div>
-                        <div class="ledger-subtotal-badge blue" id="gearSubtotalBadge">$0.00 Subtotal</div>
+                        <div class="chart-toggle-group">
+                            <button class="chart-btn active" id="chartBtnLine" onclick="switchChart('line')">📈 Earnings Trend</button>
+                            <button class="chart-btn" id="chartBtnBar" onclick="switchChart('bar')">📊 Pay vs. Gas</button>
+                            <button class="chart-btn" id="chartBtnTipSplit" onclick="switchChart('tipSplit')">🎁 Tip vs. No-Tip</button>
+                            <button class="chart-btn" id="chartBtnDonut" onclick="switchChart('donut')">🍩 Income Split</button>
+                            <button class="chart-btn" id="chartBtnEfficiency" onclick="switchChart('efficiency')">⚡ $/Mile Efficiency</button>
+                        </div>
                     </div>
+                    <div class="chart-container">
+                        <canvas id="earningsChart"></canvas>
+                    </div>
+                </section>
 
-                    <div class="ledger-items-list" id="gearItemsList">
-                        <div class="ledger-empty-state">
-                            <span class="empty-icon">🎒</span>
-                            <div class="empty-text">
-                                <strong>No gear or delivery supplies logged yet</strong>
-                                <p>Add rows in your Google Sheet's <strong>Expenses</strong> tab to see them appear here in real time.</p>
-                            </div>
+                <!-- RECENT SHIFTS QUICK SNAPSHOT CARD -->
+                <aside class="glass-panel recent-shifts-snapshot-card" style="margin-bottom: 0;">
+                    <div class="panel-header-row" style="margin-bottom: 0.9rem;">
+                        <div class="panel-title-group">
+                            <h3>Recent Vault Shifts</h3>
+                            <span class="panel-pill-badge emerald" id="recentShiftsCountBadge">Live Log</span>
+                        </div>
+                    </div>
+                    <div class="recent-shifts-mini-list" id="recentShiftsMiniList">
+                        <!-- Populated dynamically by JS -->
+                    </div>
+                    <button type="button" class="view-full-vault-btn" onclick="switchWorkspaceTab('monthly')">
+                        📅 Open Full Monthly Vault &amp; Shift Logs →
+                    </button>
+                </aside>
+            </div>
+        </div>
+
+        <!-- ==========================================================================
+             WORKSPACE VIEW 2: MONTHLY VAULT & SHIFT DRILL-DOWN TABLE
+             ========================================================================== -->
+        <div class="workspace-view-pane" id="wsPaneMonthly" data-ws-pane="monthly" style="display: none;">
+            <section class="glass-panel">
+                <div class="panel-header-row">
+                    <div class="panel-title-group">
+                        <h2>Monthly Financial Breakdown</h2>
+                        <span class="panel-pill-badge" id="tableMonthCountBadge">All Logged Months</span>
+                        <span class="drilldown-hint-badge">💡 Click any month row to inspect Shift &amp; Gas logs</span>
+                    </div>
+                </div>
+                <div class="table-responsive">
+                    <table id="dashTable">
+                        <thead>
+                            <tr>
+                                <th>Month</th>
+                                <th>Dash Hours</th>
+                                <th>Active Hours</th>
+                                <th>Miles</th>
+                                <th>IRS Deduction ($0.67)</th>
+                                <th>Deliveries</th>
+                                <th>Base Pay</th>
+                                <th>Tips</th>
+                                <th>Cash Tips</th>
+                                <th>Taxes</th>
+                                <th>Gas</th>
+                                <th>Gross Total</th>
+                                <th>Hourly Rate</th>
+                                <th># No Tip</th>
+                                <th>% No Tip</th>
+                            </tr>
+                        </thead>
+                        <tbody id="dashTableBody">
+                            <!-- Populated by JS -->
+                        </tbody>
+                        <tfoot id="dashTableFoot">
+                            <!-- Populated by JS -->
+                        </tfoot>
+                    </table>
+                </div>
+            </section>
+        </div>
+
+        <!-- ==========================================================================
+             WORKSPACE VIEW 3: TAX DEDUCTIONS & UPKEEP LEDGER
+             ========================================================================== -->
+        <div class="workspace-view-pane" id="wsPaneTax" data-ws-pane="tax" style="display: none;">
+            <!-- DEDICATED TAX DEDUCTIONS & EXPENSE INTELLIGENCE SECTION -->
+            <section class="glass-panel deductions-intelligence-panel" id="deductionsSection">
+                <div class="panel-header-row">
+                    <div class="panel-title-group">
+                        <h2>Tax Deductions &amp; Expense Intelligence</h2>
+                        <span class="panel-pill-badge amber" id="deductionsRateBadge">IRS Standard Mileage ($0.67/mi)</span>
+                    </div>
+                </div>
+
+                <!-- Deductions Cards Grid -->
+                <div class="deductions-cards-grid">
+                    <!-- Hero Deduction Card -->
+                    <div class="deduction-card highlight-amber">
+                        <div class="card-top-row">
+                            <span class="card-title">Est. IRS Tax Write-Off</span>
+                            <div class="card-icon-badge amber">🧾</div>
+                        </div>
+                        <div class="card-value-display amber" id="cardValTotalDeduction">$0.00</div>
+                        <div class="card-subtext">
+                            <span class="profit-chip positive" id="cardDeductionAdvantageChip">+ $0.00 over gas</span>
+                            <span>Standard Mileage Method</span>
                         </div>
                     </div>
 
-                    <div class="ledger-card-footer">
-                        <span class="tax-shield-note">🛡️ 100% Deductible as Schedule C Business Supplies</span>
-                    </div>
-                </div>
-
-                <!-- Card 2: Vehicle Maintenance & Upkeep -->
-                <div class="ledger-card">
-                    <div class="ledger-card-header">
-                        <div class="ledger-card-title-group">
-                            <span class="ledger-icon">🛞</span>
-                            <div>
-                                <h3>Vehicle Maintenance & Upkeep</h3>
-                                <p class="ledger-card-sub">Actual operational repairs & wear-and-tear servicing</p>
-                            </div>
+                    <!-- Estimated Cash Tax Savings -->
+                    <div class="deduction-card highlight-emerald">
+                        <div class="card-top-row">
+                            <span class="card-title">Estimated Tax Shield</span>
+                            <div class="card-icon-badge emerald">🛡️</div>
                         </div>
-                        <div class="ledger-subtotal-badge amber" id="maintSubtotalBadge">$0.00 Subtotal</div>
-                    </div>
-
-                    <div class="ledger-items-list" id="maintItemsList">
-                        <div class="ledger-empty-state">
-                            <span class="empty-icon">🛞</span>
-                            <div class="empty-text">
-                                <strong>No maintenance or upkeep expenses logged yet</strong>
-                                <p>Add rows in your Google Sheet's <strong>Expenses</strong> tab to see them appear here in real time.</p>
-                            </div>
+                        <div class="card-value-display emerald" id="cardValTaxSavings">$0.00</div>
+                        <div class="card-subtext">
+                            <span class="profit-chip positive">~25% Effective Shield</span>
+                            <span>Estimated Cash Saved</span>
                         </div>
                     </div>
 
-                    <div class="ledger-card-footer">
-                        <span class="tax-shield-note">🔧 Tracked for Actual Expense vs. Mileage Comparison</span>
+                    <!-- Deduction per Order -->
+                    <div class="deduction-card">
+                        <div class="card-top-row">
+                            <span class="card-title">Write-Off / Delivery</span>
+                            <div class="card-icon-badge cyan">📍</div>
+                        </div>
+                        <div class="card-value-display cyan" id="cardValDeductionPerOrder">$0.00</div>
+                        <div class="card-subtext">
+                            <span class="profit-chip neutral">Tax Offset per Drop</span>
+                            <span>Avg per Completed Order</span>
+                        </div>
                     </div>
-                </div>
-            </div>
 
-            <!-- Ledger Grand Summary Strip -->
-            <div class="ledger-summary-strip">
-                <div class="summary-stat-box">
-                    <span class="summary-stat-label">Total Gear & Upkeep Out-of-Pocket</span>
-                    <span class="summary-stat-value amber" id="ledgerTotalUpkeep">$0.00</span>
-                    <span class="summary-stat-sub">Gear + Maintenance Out-of-Pocket</span>
-                </div>
-                <div class="summary-stat-divider"></div>
-                <div class="summary-stat-box">
-                    <span class="summary-stat-label">Total Gas Spent</span>
-                    <span class="summary-stat-value rose" id="ledgerTotalGas">$0.00</span>
-                    <span class="summary-stat-sub">Fuel Expenses Tracked</span>
-                </div>
-                <div class="summary-stat-divider"></div>
-                <div class="summary-stat-box highlight">
-                    <span class="summary-stat-label">True Net Take-Home Pay (After Gas & Upkeep)</span>
-                    <span class="summary-stat-value emerald" id="ledgerTrueNetProfit">$0.00</span>
-                    <span class="summary-stat-sub" id="ledgerNetMarginSub">Calculating real-time net take-home...</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- 5. SECONDARY FINANCIAL STRIP -->
-        <section class="secondary-kpi-grid">
-            <div class="mini-kpi-card">
-                <div class="mini-icon-circle emerald">💵</div>
-                <div class="mini-kpi-info">
-                    <span class="mini-kpi-label">Gross Earnings</span>
-                    <span class="mini-kpi-value" id="kpiGrossEarnings">$0.00</span>
-                </div>
-            </div>
-            <div class="mini-kpi-card">
-                <div class="mini-icon-circle cyan">💳</div>
-                <div class="mini-kpi-info">
-                    <span class="mini-kpi-label">Base Pay</span>
-                    <span class="mini-kpi-value" id="kpiBasePay">$0.00</span>
-                </div>
-            </div>
-            <div class="mini-kpi-card">
-                <div class="mini-icon-circle amber">🎁</div>
-                <div class="mini-kpi-info">
-                    <span class="mini-kpi-label">Customer Tips (App + Cash)</span>
-                    <span class="mini-kpi-value" id="kpiTotalTips">$0.00</span>
-                </div>
-            </div>
-            <div class="mini-kpi-card">
-                <div class="mini-icon-circle rose">⛽</div>
-                <div class="mini-kpi-info">
-                    <span class="mini-kpi-label">Gas Spent</span>
-                    <span class="mini-kpi-value" id="kpiTotalGas" style="color: #fb7185;">$0.00</span>
-                </div>
-            </div>
-        </section>
-
-        <!-- 5. ANALYTICS VISUALIZER SECTION -->
-        <section class="glass-panel">
-            <div class="panel-header-row">
-                <div class="panel-title-group">
-                    <h2>Analytics Visualizer</h2>
-                    <span class="panel-pill-badge" id="chartSubtitleBadge">Monthly Performance</span>
-                </div>
-                <div class="chart-toggle-group">
-                    <button class="chart-btn active" id="chartBtnLine" onclick="switchChart('line')">📈 Earnings Trend</button>
-                    <button class="chart-btn" id="chartBtnBar" onclick="switchChart('bar')">📊 Pay vs. Gas</button>
-                    <button class="chart-btn" id="chartBtnTipSplit" onclick="switchChart('tipSplit')">🎁 Tip vs. No-Tip</button>
-                    <button class="chart-btn" id="chartBtnDonut" onclick="switchChart('donut')">🍩 Income Split</button>
-                    <button class="chart-btn" id="chartBtnEfficiency" onclick="switchChart('efficiency')">⚡ $/Mile Efficiency</button>
-                </div>
-            </div>
-            <div class="chart-container">
-                <canvas id="earningsChart"></canvas>
-            </div>
-        </section>
-
-        <!-- 6. PRESTIGE & RATINGS SHOWCASE -->
-        <section class="prestige-bento-layout">
-            <!-- Left: Status Tier Shield Card -->
-            <div class="tier-status-card" id="prestigeTierCard">
-                <div class="tier-shield-header">
-                    <div class="shield-badge-icon">🛡️</div>
-                    <div class="tier-title-wrap">
-                        <h3>Platinum Dasher</h3>
-                        <p class="tier-subtitle">Top Tier Status • Priority Access & VIP Recognition</p>
+                    <!-- Total Tracked Miles -->
+                    <div class="deduction-card">
+                        <div class="card-top-row">
+                            <span class="card-title">Business Mileage</span>
+                            <div class="card-icon-badge purple">🚗</div>
+                        </div>
+                        <div class="card-value-display purple" id="cardValDeductionMiles">0 mi</div>
+                        <div class="card-subtext">
+                            <span class="profit-chip neutral" id="cardDeductionRateChip">@ $0.67 / mile</span>
+                            <span>Total Tracked Distance</span>
+                        </div>
                     </div>
                 </div>
 
-                <div class="prestige-metrics-row">
-                    <div class="prestige-mini-stat">
-                        <div class="prestige-stat-label">Customer Rating</div>
-                        <div class="prestige-stat-val gold" id="valCustomerRating">★ 5.0</div>
+                <!-- Mileage Deduction vs. Actual Gas Comparison Bar -->
+                <div class="deductions-comparison-container">
+                    <div class="comparison-labels-row">
+                        <span class="comparison-label-deduction">
+                            <span class="comparison-dot amber"></span> Standard Mileage Deduction: <strong id="compDeductionText">$0.00 (0%)</strong>
+                        </span>
+                        <span class="comparison-label-gas">
+                            <span class="comparison-dot rose"></span> Actual Gas Expenses: <strong id="compGasText">$0.00 (0%)</strong>
+                        </span>
                     </div>
-                    <div class="prestige-mini-stat">
-                        <div class="prestige-stat-label">Overall Rating</div>
-                        <div class="prestige-stat-val emerald" id="valOverallRating">100%</div>
+                    <div class="comparison-track-bar">
+                        <div class="comparison-segment deduction" id="compSegmentDeduction" style="width: 76%;"></div>
+                        <div class="comparison-segment gas" id="compSegmentGas" style="width: 24%;"></div>
                     </div>
-                    <div class="prestige-mini-stat">
-                        <div class="prestige-stat-label">Lifetime Deliveries</div>
-                        <div class="prestige-stat-val" id="valLifetimeDeliveries">0</div>
+                    <div class="comparison-summary-note" id="compSummaryNote">
+                        💡 <strong>Tax Tip:</strong> Using the IRS standard mileage rate ($0.67/mi) gives you a significantly larger write-off than actual gas receipts alone!
+                    </div>
+                </div>
+            </section>
+
+            <!-- ITEMIZED GEAR, SUPPLIES & VEHICLE UPKEEP LEDGER -->
+            <section class="ledger-panel" id="ledgerSection">
+                <div class="panel-header-row">
+                    <div class="panel-title-group">
+                        <h2>Itemized Gear, Supplies &amp; Vehicle Upkeep</h2>
+                        <span class="panel-pill-badge blue">Out-of-Pocket Ledger</span>
+                    </div>
+                    <div class="ledger-header-meta">
+                        <span class="ledger-tax-tag">🧾 100% Tax Deductible Gear &amp; Maintenance</span>
                     </div>
                 </div>
 
-                <!-- Star Rating Progress Rows -->
-                <div class="star-bars-container" id="starBreakdownRows">
-                    <!-- Populated dynamically by JS -->
-                </div>
-            </div>
+                <div class="ledger-cards-grid">
+                    <!-- Card 1: Dasher Gear & Delivery Supplies -->
+                    <div class="ledger-card">
+                        <div class="ledger-card-header">
+                            <div class="ledger-card-title-group">
+                                <span class="ledger-icon">🎒</span>
+                                <div>
+                                    <h3>Dasher Gear &amp; Delivery Supplies</h3>
+                                    <p class="ledger-card-sub">Hot bags, catering packs &amp; mobile dash equipment</p>
+                                </div>
+                            </div>
+                            <div class="ledger-subtotal-badge blue" id="gearSubtotalBadge">$0.00 Subtotal</div>
+                        </div>
 
-            <!-- Right: Customer Feedback & Compliments -->
-            <div class="feedback-bento-card">
-                <h3>Customer Feedback & Compliments</h3>
-                <div class="feedback-chips-grid" id="feedbackGrid">
-                    <!-- Populated dynamically by JS -->
-                </div>
-            </div>
-        </section>
+                        <div class="ledger-items-list" id="gearItemsList">
+                            <div class="ledger-empty-state">
+                                <span class="empty-icon">🎒</span>
+                                <div class="empty-text">
+                                    <strong>No gear or delivery supplies logged yet</strong>
+                                    <p>Add rows in your Google Sheet's <strong>Expenses</strong> tab to see them appear here in real time.</p>
+                                </div>
+                            </div>
+                        </div>
 
-        <!-- 7. MONTHLY DATA TABLE SECTION -->
-        <section class="glass-panel">
-            <div class="panel-header-row">
-                <div class="panel-title-group">
-                    <h2>Monthly Financial Breakdown</h2>
-                    <span class="panel-pill-badge" id="tableMonthCountBadge">All Logged Months</span>
-                    <span class="drilldown-hint-badge">💡 Click any month row to inspect Shift & Gas logs</span>
+                        <div class="ledger-card-footer">
+                            <span class="tax-shield-note">🛡️ 100% Deductible as Schedule C Business Supplies</span>
+                        </div>
+                    </div>
+
+                    <!-- Card 2: Vehicle Maintenance & Upkeep -->
+                    <div class="ledger-card">
+                        <div class="ledger-card-header">
+                            <div class="ledger-card-title-group">
+                                <span class="ledger-icon">🛞</span>
+                                <div>
+                                    <h3>Vehicle Maintenance &amp; Upkeep</h3>
+                                    <p class="ledger-card-sub">Actual operational repairs &amp; wear-and-tear servicing</p>
+                                </div>
+                            </div>
+                            <div class="ledger-subtotal-badge amber" id="maintSubtotalBadge">$0.00 Subtotal</div>
+                        </div>
+
+                        <div class="ledger-items-list" id="maintItemsList">
+                            <div class="ledger-empty-state">
+                                <span class="empty-icon">🛞</span>
+                                <div class="empty-text">
+                                    <strong>No maintenance or upkeep expenses logged yet</strong>
+                                    <p>Add rows in your Google Sheet's <strong>Expenses</strong> tab to see them appear here in real time.</p>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="ledger-card-footer">
+                            <span class="tax-shield-note">🔧 Tracked for Actual Expense vs. Mileage Comparison</span>
+                        </div>
+                    </div>
                 </div>
-            </div>
-            <div class="table-responsive">
-                <table id="dashTable">
-                    <thead>
-                        <tr>
-                            <th>Month</th>
-                            <th>Dash Hours</th>
-                            <th>Active Hours</th>
-                            <th>Miles</th>
-                            <th>IRS Deduction ($0.67)</th>
-                            <th>Deliveries</th>
-                            <th>Base Pay</th>
-                            <th>Tips</th>
-                            <th>Cash Tips</th>
-                            <th>Taxes</th>
-                            <th>Gas</th>
-                            <th>Gross Total</th>
-                            <th>Hourly Rate</th>
-                            <th># No Tip</th>
-                            <th>% No Tip</th>
-                        </tr>
-                    </thead>
-                    <tbody id="dashTableBody">
-                        <!-- Populated by JS -->
-                    </tbody>
-                    <tfoot id="dashTableFoot">
-                        <!-- Populated by JS -->
-                    </tfoot>
-                </table>
-            </div>
-        </section>
+
+                <!-- Ledger Grand Summary Strip -->
+                <div class="ledger-summary-strip">
+                    <div class="summary-stat-box">
+                        <span class="summary-stat-label">Total Gear &amp; Upkeep Out-of-Pocket</span>
+                        <span class="summary-stat-value amber" id="ledgerTotalUpkeep">$0.00</span>
+                        <span class="summary-stat-sub">Gear + Maintenance Out-of-Pocket</span>
+                    </div>
+                    <div class="summary-stat-divider"></div>
+                    <div class="summary-stat-box">
+                        <span class="summary-stat-label">Total Gas Spent</span>
+                        <span class="summary-stat-value rose" id="ledgerTotalGas">$0.00</span>
+                        <span class="summary-stat-sub">Fuel Expenses Tracked</span>
+                    </div>
+                    <div class="summary-stat-divider"></div>
+                    <div class="summary-stat-box highlight">
+                        <span class="summary-stat-label">True Net Take-Home Pay (After Gas &amp; Upkeep)</span>
+                        <span class="summary-stat-value emerald" id="ledgerTrueNetProfit">$0.00</span>
+                        <span class="summary-stat-sub" id="ledgerNetMarginSub">Calculating real-time net take-home...</span>
+                    </div>
+                </div>
+            </section>
+        </div>
+
+        <!-- ==========================================================================
+             WORKSPACE VIEW 4: TIPPING INTELLIGENCE & PLATINUM DASHER PRESTIGE
+             ========================================================================== -->
+        <div class="workspace-view-pane" id="wsPanePrestige" data-ws-pane="prestige" style="display: none;">
+            <!-- DEDICATED TIPPING & ORDER INTELLIGENCE SECTION -->
+            <section class="glass-panel tipping-intelligence-panel">
+                <div class="panel-header-row">
+                    <div class="panel-title-group">
+                        <h2>Tipping &amp; Order Intelligence</h2>
+                        <span class="panel-pill-badge" id="tippingSummaryBadge">Customer Generosity Breakdown</span>
+                    </div>
+                </div>
+
+                <!-- Tipping KPI Cards -->
+                <div class="tipping-cards-grid">
+                    <!-- Total Deliveries Card -->
+                    <div class="tipping-card">
+                        <div class="card-top-row">
+                            <span class="card-title">Total Deliveries</span>
+                            <div class="card-icon-badge">🛍️</div>
+                        </div>
+                        <div class="card-value-display" id="cardValDeliveries">0</div>
+                        <div class="card-subtext">
+                            <span class="profit-chip neutral" id="cardAvgPerOrderChip">$0.00 / order</span>
+                            <span>Avg Gross Payout</span>
+                        </div>
+                    </div>
+
+                    <!-- Tipped Orders Card (Emerald) -->
+                    <div class="tipping-card highlight-tipped">
+                        <div class="card-top-row">
+                            <span class="card-title">Tipped Orders</span>
+                            <div class="card-icon-badge emerald">🎁</div>
+                        </div>
+                        <div class="card-value-display emerald" id="cardValTippedOrders">0</div>
+                        <div class="card-subtext">
+                            <span class="profit-chip positive" id="cardTippedRateChip">--% Generosity</span>
+                            <span id="cardAvgTipAmountChip">Avg $0.00 / tip</span>
+                        </div>
+                    </div>
+
+                    <!-- No-Tip Orders Card (Rose Alert) -->
+                    <div class="tipping-card highlight-notipped">
+                        <div class="card-top-row">
+                            <span class="card-title">No-Tip Deliveries</span>
+                            <div class="card-icon-badge rose">🚫</div>
+                        </div>
+                        <div class="card-value-display rose" id="cardValNoTipOrders">0</div>
+                        <div class="card-subtext">
+                            <span class="profit-chip expense" id="cardNoTipRateChip">--% Stiff Rate</span>
+                            <span>Orders with $0 Tip</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Segmented Tipping Ratio Bar -->
+                <div class="tipping-ratio-container">
+                    <div class="ratio-labels-row">
+                        <span class="ratio-label-tipped">
+                            <span class="ratio-dot emerald"></span> Tipped Orders: <strong id="ratioTippedText">0 (0.0%)</strong>
+                        </span>
+                        <span class="ratio-label-notipped">
+                            <span class="ratio-dot rose"></span> No-Tip Orders: <strong id="ratioNoTipText">0 (0.0%)</strong>
+                        </span>
+                    </div>
+                    <div class="ratio-track-bar">
+                        <div class="ratio-segment tipped" id="ratioSegmentTipped" style="width: 50%;"></div>
+                        <div class="ratio-segment notipped" id="ratioSegmentNoTip" style="width: 50%;"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- PRESTIGE & RATINGS SHOWCASE -->
+            <section class="prestige-bento-layout">
+                <!-- Left: Status Tier Shield Card -->
+                <div class="tier-status-card" id="prestigeTierCard">
+                    <div class="tier-shield-header">
+                        <div class="shield-badge-icon">🛡️</div>
+                        <div class="tier-title-wrap">
+                            <h3>Platinum Dasher</h3>
+                            <p class="tier-subtitle">Top Tier Status • Priority Access &amp; VIP Recognition</p>
+                        </div>
+                    </div>
+
+                    <div class="prestige-metrics-row">
+                        <div class="prestige-mini-stat">
+                            <div class="prestige-stat-label">Customer Rating</div>
+                            <div class="prestige-stat-val gold" id="valCustomerRating">★ 5.0</div>
+                        </div>
+                        <div class="prestige-mini-stat">
+                            <div class="prestige-stat-label">Overall Rating</div>
+                            <div class="prestige-stat-val emerald" id="valOverallRating">100%</div>
+                        </div>
+                        <div class="prestige-mini-stat">
+                            <div class="prestige-stat-label">Lifetime Deliveries</div>
+                            <div class="prestige-stat-val" id="valLifetimeDeliveries">0</div>
+                        </div>
+                    </div>
+
+                    <!-- Star Rating Progress Rows -->
+                    <div class="star-bars-container" id="starBreakdownRows">
+                        <!-- Populated dynamically by JS -->
+                    </div>
+                </div>
+
+                <!-- Right: Customer Feedback & Compliments -->
+                <div class="feedback-bento-card">
+                    <h3>Customer Feedback &amp; Compliments</h3>
+                    <div class="feedback-chips-grid" id="feedbackGrid">
+                        <!-- Populated dynamically by JS -->
+                    </div>
+                </div>
+            </section>
+        </div>
 
         <!-- FOOTER -->
         <footer class="dashboard-footer">
-            <p>Dasher Tracker HQ <span class="version-badge">v4.2.1</span> • Multi-Year Delivery Vault & Tax Intelligence</p>
+            <p>Dasher Tracker HQ <span class="version-badge">v5.0.0</span> • Multi-Year Delivery Vault &amp; Tax Intelligence</p>
         </footer>
     </main>
 
@@ -899,6 +970,6 @@
     <!-- TOAST NOTIFICATION CONTAINER -->
     <div id="hqToastContainer" class="hq-toast-container"></div>
 
-    <script src="script.js?v=4.2.1"></script>
+    <script src="script.js?v=5.0.0"></script>
 </body>
 </html>

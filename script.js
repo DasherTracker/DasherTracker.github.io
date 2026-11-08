@@ -1,5 +1,5 @@
 /* ==========================================================================
-   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v4.2.1)
+   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v5.0.0)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
@@ -628,13 +628,18 @@ function processData(data) {
         };
 
         // Render all UI sections
+        renderRatings(ratingsHeaders, ratingsValues, totalDeliveries);
+        const displayTotalDeliveries = (currentVaultYear === 'all' && latestRatingsState.lifetime > totalDeliveries)
+            ? latestRatingsState.lifetime
+            : totalDeliveries;
+
         renderExecutiveBento(totalEarnings, totalGas, totalDashHoursNum, totalMiles);
-        renderTippingIntelligence(totalDeliveries, totalNoTipping, totalTips + totalCashTips, totalEarnings);
-        renderDeductionsIntelligence(totalMiles, totalGas, totalDeliveries);
+        renderTippingIntelligence(displayTotalDeliveries, totalNoTipping, totalTips + totalCashTips, totalEarnings);
+        renderDeductionsIntelligence(totalMiles, totalGas, displayTotalDeliveries);
         renderItemizedLedger(totalEarnings, totalGas);
         renderSecondaryKpis(totalEarnings, totalBasePay, totalTips + totalCashTips, totalGas);
+        renderRecentShiftsSnapshot();
         renderChart(currentChartType);
-        renderRatings(ratingsHeaders, ratingsValues, totalDeliveries);
         renderFeedback(feedbackHeaders, feedbackValues);
         renderTable(monthlyRows);
         renderTotalRow(totalRow, totalMiles);
@@ -841,8 +846,15 @@ function renderTippingIntelligence(totalDeliveries, totalNoTipping, totalTips, t
 
     // Animate Deliveries & Tip Counts
     animateValue('cardValDeliveries', totalDeliveries, false);
+    animateValue('cardValOverviewDeliveries', totalDeliveries, false);
     animateValue('cardValTippedOrders', totalTippedCount, false);
     animateValue('cardValNoTipOrders', totalNoTipCount, false);
+
+    // Update Overview Deliveries Card Chips
+    const ovTippedChip = document.getElementById('cardOverviewTippedChip');
+    if (ovTippedChip) ovTippedChip.textContent = `🎁 ${tippedPct.toFixed(1)}% Tipped`;
+    const ovPerOrderText = document.getElementById('cardOverviewPerOrderText');
+    if (ovPerOrderText) ovPerOrderText.textContent = `$${avgGrossPayout.toFixed(2)} / order`;
 
     // Update Chips & Context
     const avgGrossChip = document.getElementById('cardAvgPerOrderChip');
@@ -899,13 +911,13 @@ function renderRatings(headers, values, liveTotalDeliveries = 0) {
         }
     }
 
-    let lifetimeNum = parseInt(String(map['lifetime deliveries'] || map['lifetime'] || '1318').replace(/[^0-9]/g, ''), 10) || 1318;
-    // Also incorporate live Vault ratings or newly added shift deliveries beyond baseline 1224
+    let lifetimeNum = parseInt(String(map['lifetime deliveries'] || map['lifetime'] || '1349').replace(/[^0-9]/g, ''), 10) || 1349;
+    // Also incorporate live Vault ratings or newly added shift deliveries beyond baseline 1224 (1,224 + 125 prior lifetime = 1,349)
     if (liveVaultData && liveVaultData.ratings && Number(liveVaultData.ratings.lifetime) > lifetimeNum) {
         lifetimeNum = Number(liveVaultData.ratings.lifetime);
     }
-    if (liveTotalDeliveries > 1224) {
-        const expectedMinLifetime = 1318 + (liveTotalDeliveries - 1224);
+    if (liveTotalDeliveries >= 1224) {
+        const expectedMinLifetime = 125 + liveTotalDeliveries;
         if (expectedMinLifetime > lifetimeNum) {
             lifetimeNum = expectedMinLifetime;
         }
@@ -1739,12 +1751,81 @@ function renderVaultYearFromRecords(targetYear) {
     renderDeductionsIntelligence(totalMiles, totalGas, totalDeliveries);
     renderItemizedLedger(totalEarnings, totalGas);
     renderSecondaryKpis(totalEarnings, totalBasePay, totalTips + totalCashTips, totalGas);
+    renderRecentShiftsSnapshot();
     renderChart(currentChartType);
     renderTable(monthlyRows);
     renderTotalRow(syntheticTotalRow, totalMiles);
 
     const countBadge = document.getElementById('tableMonthCountBadge');
     if (countBadge) countBadge.textContent = `${targetYear} Vault • ${activeMonthsCount} Active Months`;
+}
+
+/* --- 1b. Clean 4-Tab Workspace Navigation & Recent Shift Snapshot (v5.0.0) --- */
+let currentWorkspaceTab = 'overview';
+
+function switchWorkspaceTab(tabName) {
+    currentWorkspaceTab = tabName || 'overview';
+    document.querySelectorAll('#workspaceNavDock .workspace-tab-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.getAttribute('data-ws-tab') === currentWorkspaceTab);
+    });
+    document.querySelectorAll('.workspace-view-pane').forEach(pane => {
+        const isMatch = pane.getAttribute('data-ws-pane') === currentWorkspaceTab;
+        pane.style.display = isMatch ? 'block' : 'none';
+        pane.classList.toggle('active', isMatch);
+    });
+    if (currentWorkspaceTab === 'overview' && earningsChartInstance) {
+        setTimeout(() => {
+            try { earningsChartInstance.resize(); } catch (e) {}
+        }, 60);
+    }
+}
+
+function renderRecentShiftsSnapshot() {
+    const listEl = document.getElementById('recentShiftsMiniList');
+    const badgeEl = document.getElementById('recentShiftsCountBadge');
+    if (!listEl) return;
+
+    const allShifts = Array.isArray(liveVaultData.shifts) ? liveVaultData.shifts : [];
+    const filteredShifts = currentVaultYear === 'all'
+        ? allShifts
+        : allShifts.filter(s => Number(s.year || 2026) === Number(currentVaultYear));
+
+    if (badgeEl) {
+        badgeEl.textContent = `${filteredShifts.length} Logged Shifts`;
+    }
+
+    if (filteredShifts.length === 0) {
+        listEl.innerHTML = `
+            <div class="recent-shift-mini-row">
+                <div class="rs-mini-left">
+                    <span class="rs-mini-date">No shifts logged for this year yet</span>
+                    <span class="rs-mini-meta">Click "+ Log Shift / Add Data" to record a shift</span>
+                </div>
+            </div>
+        `;
+        return;
+    }
+
+    const latestFive = filteredShifts.slice(-5).reverse();
+    listEl.innerHTML = latestFive.map(s => {
+        const pay = Number(s.total || 0);
+        const rate = Number(s.hourlyRate || 0);
+        const deliv = Number(s.deliveries || 0);
+        const miles = Number(s.miles || 0);
+        const startLabel = escapeHtml(String(s.start || s.month || 'Shift').replace(/:00$/, ''));
+        return `
+            <div class="recent-shift-mini-row">
+                <div class="rs-mini-left">
+                    <span class="rs-mini-date">${startLabel}</span>
+                    <span class="rs-mini-meta">🛍️ ${deliv} orders • 🚗 ${miles} mi • ⏱️ ${escapeHtml(String(s.activeHours || s.hours || '0:00'))}</span>
+                </div>
+                <div class="rs-mini-right">
+                    <span class="rs-mini-pay">$${pay.toFixed(2)}</span>
+                    <span class="rs-mini-rate">$${rate.toFixed(2)}/hr</span>
+                </div>
+            </div>
+        `;
+    }).join('');
 }
 
 /* --- 2. Minimalist Google Account Security Gate (Zero Exposed Emails) --- */
