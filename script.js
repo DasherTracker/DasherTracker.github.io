@@ -1,9 +1,10 @@
 /* ==========================================================================
-   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v5.0.0)
+/* ==========================================================================
+   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v5.1.0)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
-const API_BASE_URL = 'https://script.google.com/macros/s/AKfycby1-kBvcS3e26AbWbEu8jC6F_J6x44MAQxmUbHypP3rFaAk6QyrdbqpTyJy8BXJaaQ/exec';
+const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbxL_H_bplhkzZOkjrPIn1gfJ71hFwYNo3ct9O9ygA2N3GIGP98qHmEL6giaVCynCzE/exec';
 const EXPENSES_API_URL = `${API_BASE_URL}?action=getExpenses`;
 const VAULT_API_URL = `${API_BASE_URL}?action=getVaultData`;
 const FIREBASE_DB_URL = 'https://dasher-tracker-hq-default-rtdb.firebaseio.com';
@@ -1080,12 +1081,15 @@ function buildDrilldownDrawerHtml(monthName) {
                             <th>Total</th>
                             <th>Rate</th>
                             <th>Misc Reason / Notes</th>
+                            <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${shifts.map(s => {
                             const miscBadge = s.miscCategory ? `<span class="misc-pill-badge">${escapeHtml(s.miscCategory)}</span>` : '';
                             const noteText = s.miscNote ? escapeHtml(s.miscNote) : (s.miscAmount > 0 ? 'Bonus / Extra Pay' : '—');
+                            const sId = escapeHtml(s.id || '');
+                            const sStart = escapeHtml(s.start || '');
                             return `
                                 <tr>
                                     <td>${escapeHtml(s.start)}</td>
@@ -1100,6 +1104,9 @@ function buildDrilldownDrawerHtml(monthName) {
                                     <td class="positive-val"><strong>$${Number(s.total || 0).toFixed(2)}</strong></td>
                                     <td>$${Number(s.hourlyRate || 0).toFixed(2)}/hr</td>
                                     <td>${miscBadge}${noteText}</td>
+                                    <td>
+                                        <button type="button" class="btn-shift-edit btn-shift-edit-sm" onclick="openEditShiftModal('${sId}', '${sStart}')" title="Edit Shift & Reimbursements">✏️ Edit</button>
+                                    </td>
                                 </tr>
                             `;
                         }).join('')}
@@ -1813,6 +1820,8 @@ function renderRecentShiftsSnapshot() {
         const deliv = Number(s.deliveries || 0);
         const miles = Number(s.miles || 0);
         const startLabel = escapeHtml(String(s.start || s.month || 'Shift').replace(/:00$/, ''));
+        const sId = escapeHtml(s.id || '');
+        const sStart = escapeHtml(s.start || '');
         return `
             <div class="recent-shift-mini-row">
                 <div class="rs-mini-left">
@@ -1823,6 +1832,7 @@ function renderRecentShiftsSnapshot() {
                     <span class="rs-mini-pay">$${pay.toFixed(2)}</span>
                     <span class="rs-mini-rate">$${rate.toFixed(2)}/hr</span>
                 </div>
+                <button type="button" class="btn-shift-edit" onclick="openEditShiftModal('${sId}', '${sStart}')" title="Edit Shift & Reimbursements">✏️ Edit</button>
             </div>
         `;
     }).join('');
@@ -2809,3 +2819,346 @@ async function submitRatingsForm(event) {
     }
 }
 
+/* ==========================================================================
+   1-CLICK EDIT SHIFT & REIMBURSEMENTS ENGINE (v5.1.0)
+   ========================================================================== */
+
+function parseToIsoDateTimeLocal(str) {
+    if (!str) return '';
+    const clean = String(str).trim();
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(clean)) {
+        return clean.slice(0, 16);
+    }
+    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(clean)) {
+        return clean.replace(' ', 'T').slice(0, 16);
+    }
+    const mdy = clean.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM))?)?/i);
+    if (mdy) {
+        const month = mdy[1].padStart(2, '0');
+        const day = mdy[2].padStart(2, '0');
+        const year = mdy[3];
+        let hours = parseInt(mdy[4] || '0', 10);
+        const minutes = (mdy[5] || '00').padStart(2, '0');
+        const ampm = mdy[7] ? mdy[7].toUpperCase() : null;
+        if (ampm === 'PM' && hours < 12) hours += 12;
+        if (ampm === 'AM' && hours === 12) hours = 0;
+        const hrStr = String(hours).padStart(2, '0');
+        return `${year}-${month}-${day}T${hrStr}:${minutes}`;
+    }
+    const d = new Date(clean.replace(' ', 'T'));
+    if (!isNaN(d.getTime())) {
+        const pad = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+    return '';
+}
+
+function openEditShiftModal(shiftId, startStr) {
+    const allShifts = Array.isArray(liveVaultData.shifts) ? liveVaultData.shifts : [];
+    const shift = allShifts.find(s => {
+        if (shiftId && s.id && String(s.id).trim() === String(shiftId).trim()) return true;
+        if (startStr && s.start && String(s.start).trim() === String(startStr).trim()) return true;
+        return false;
+    });
+
+    if (!shift) {
+        showHqToast('Shift details could not be found in Vault cache.', true);
+        return;
+    }
+
+    document.getElementById('editShiftIdInput').value = shift.id || '';
+    document.getElementById('editShiftYearInput').value = shift.year || 2026;
+    document.getElementById('editShiftMonthInput').value = shift.month || '';
+    document.getElementById('editShiftOldStartInput').value = shift.start || '';
+
+    const startIso = parseToIsoDateTimeLocal(shift.start);
+    const endIso = parseToIsoDateTimeLocal(shift.end);
+    document.getElementById('editShiftStartInput').value = startIso;
+    document.getElementById('editShiftEndInput').value = endIso;
+
+    document.getElementById('editShiftActiveHoursInput').value = shift.activeHours || shift.hours || '0:00';
+    document.getElementById('editShiftMilesInput').value = shift.miles !== undefined ? Number(shift.miles) : '';
+    document.getElementById('editShiftDeliveriesInput').value = shift.deliveries !== undefined ? Number(shift.deliveries) : '';
+    document.getElementById('editShiftNoTipsInput').value = shift.noTips !== undefined ? Number(shift.noTips) : 0;
+
+    document.getElementById('editShiftBasePayInput').value = shift.basePay !== undefined ? Number(shift.basePay).toFixed(2) : '';
+    document.getElementById('editShiftTipsInput').value = shift.tips !== undefined ? Number(shift.tips).toFixed(2) : '';
+    document.getElementById('editShiftCashTipsInput').value = shift.cashTips !== undefined ? Number(shift.cashTips).toFixed(2) : '0.00';
+
+    // Populate Reimbursements & Misc Rows
+    const container = document.getElementById('editMiscPayRowsContainer');
+    if (container) {
+        container.innerHTML = '';
+        const amt = Number(shift.miscAmount || 0);
+        const cat = String(shift.miscCategory || '');
+        const note = String(shift.miscNote || '');
+        if (amt > 0 || cat || note) {
+            addEditMiscPayRow(cat || '💵 Reimbursement', amt, note);
+        } else {
+            addEditMiscPayRow('💵 Reimbursement', 0, '');
+        }
+    }
+
+    const badge = document.getElementById('editShiftIdBadge');
+    if (badge) {
+        badge.textContent = shift.id ? `ID: ${shift.id}` : `Date: ${shift.start || ''}`;
+    }
+    const targetBadge = document.getElementById('editShiftVaultTargetBadge');
+    if (targetBadge) {
+        targetBadge.textContent = `🏛️ Target: ${shift.month || ''} ${shift.year || 2026} Vault`;
+    }
+
+    recalcEditShiftPreview();
+
+    const overlay = document.getElementById('editShiftModalOverlay');
+    if (overlay) {
+        overlay.style.display = 'flex';
+    }
+}
+
+function closeEditShiftModal() {
+    const overlay = document.getElementById('editShiftModalOverlay');
+    if (overlay) {
+        overlay.style.display = 'none';
+    }
+}
+
+function addEditMiscPayRow(initialType, initialAmount, initialNote) {
+    const container = document.getElementById('editMiscPayRowsContainer');
+    if (!container) return;
+    const row = document.createElement('div');
+    row.className = 'misc-pay-row';
+    const typeVal = initialType || '💵 Reimbursement';
+    const amtVal = (initialAmount !== undefined && initialAmount !== null) ? Number(initialAmount).toFixed(2) : '0.00';
+    const noteVal = initialNote || '';
+
+    row.innerHTML = `
+        <div class="hq-field-group">
+            <label>Misc Type Dropdown</label>
+            <select class="hq-select misc-type-select" onchange="recalcEditShiftPreview()">
+                <option value="💵 Reimbursement" ${typeVal.indexOf('Reimbursement') !== -1 ? 'selected' : ''}>💵 Reimbursement (Closed Store / Half-Pay)</option>
+                <option value="⚡ Peak Pay / Bonus" ${typeVal.indexOf('Peak') !== -1 || typeVal.indexOf('Bonus') !== -1 ? 'selected' : ''}>⚡ Peak Pay / Challenge Bonus</option>
+                <option value="📦 Extra Delivery Fee" ${typeVal.indexOf('Extra') !== -1 ? 'selected' : ''}>📦 Extra Delivery Fee</option>
+                <option value="🎉 Other Misc Pay" ${typeVal.indexOf('Other') !== -1 ? 'selected' : ''}>🎉 Other Misc Pay</option>
+            </select>
+        </div>
+        <div class="hq-field-group">
+            <label>Misc Amount ($)</label>
+            <input type="number" step="0.01" min="0" class="hq-input misc-amount-input" value="${amtVal}" placeholder="0.00" oninput="recalcEditShiftPreview()">
+        </div>
+        <div class="hq-field-group misc-note-group">
+            <label>Misc Reason / Note</label>
+            <input type="text" class="hq-input misc-note-input" value="${escapeHtml(noteVal)}" placeholder="e.g. Closed store half-pay ($6.75) or cancelled order" oninput="recalcEditShiftPreview()">
+        </div>
+        <button type="button" class="remove-misc-row-btn" onclick="this.parentElement.remove(); recalcEditShiftPreview();" title="Remove Item">&times;</button>
+    `;
+    container.appendChild(row);
+    recalcEditShiftPreview();
+}
+
+function collectEditMiscPaySummary() {
+    const rows = document.querySelectorAll('#editMiscPayRowsContainer .misc-pay-row');
+    let totalMiscAmount = 0;
+    const categories = [];
+    const notesParts = [];
+
+    rows.forEach(r => {
+        const typeEl = r.querySelector('.misc-type-select');
+        const amtEl = r.querySelector('.misc-amount-input');
+        const noteEl = r.querySelector('.misc-note-input');
+
+        const typeVal = typeEl ? typeEl.value.trim() : '';
+        const amtVal = amtEl ? (parseFloat(amtEl.value) || 0) : 0;
+        const noteVal = noteEl ? noteEl.value.trim() : '';
+
+        if (amtVal > 0 || noteVal) {
+            totalMiscAmount += amtVal;
+            const cleanCat = typeVal ? typeVal.replace(/^[^\w]+/, '').trim() : 'Reimbursement';
+            if (cleanCat && !categories.includes(cleanCat)) {
+                categories.push(cleanCat);
+            }
+            if (noteVal && amtVal > 0) {
+                notesParts.push(`${cleanCat} ($${amtVal.toFixed(2)}): ${noteVal}`);
+            } else if (noteVal) {
+                notesParts.push(`${cleanCat}: ${noteVal}`);
+            } else if (amtVal > 0) {
+                notesParts.push(`${cleanCat}: $${amtVal.toFixed(2)}`);
+            }
+        }
+    });
+
+    return {
+        miscAmount: parseFloat(totalMiscAmount.toFixed(2)),
+        miscCategory: categories.join(' + ') || (totalMiscAmount > 0 ? 'Reimbursement' : ''),
+        miscNote: notesParts.join(' | ')
+    };
+}
+
+function recalcEditShiftPreview() {
+    const startVal = document.getElementById('editShiftStartInput').value;
+    const endVal = document.getElementById('editShiftEndInput').value;
+    const sDate = new Date(startVal);
+    const eDate = new Date(endVal);
+
+    let totalHrs = 0;
+    let totalHrsStr = '0:00';
+    if (!isNaN(sDate.getTime()) && !isNaN(eDate.getTime()) && eDate > sDate) {
+        const diffMs = eDate.getTime() - sDate.getTime();
+        totalHrs = diffMs / 3600000;
+        const hrs = Math.floor(totalHrs);
+        const mins = Math.round((totalHrs - hrs) * 60);
+        totalHrsStr = `${hrs}:${mins < 10 ? '0' + mins : mins}`;
+    }
+    const hint = document.getElementById('editShiftTotalHrsHint');
+    if (hint) hint.textContent = `Total: ${totalHrsStr}`;
+
+    const activeHoursStr = document.getElementById('editShiftActiveHoursInput').value || totalHrsStr;
+    const activeHrsFloat = parseHoursToNumber(activeHoursStr) || totalHrs || 1;
+
+    const basePay = parseFloat(document.getElementById('editShiftBasePayInput').value) || 0;
+    const tips = parseFloat(document.getElementById('editShiftTipsInput').value) || 0;
+    const cashTips = parseFloat(document.getElementById('editShiftCashTipsInput').value) || 0;
+    const miles = parseFloat(document.getElementById('editShiftMilesInput').value) || 0;
+
+    const { miscAmount } = collectEditMiscPaySummary();
+
+    const grossTotal = basePay + tips + cashTips + miscAmount;
+    const hourlyRate = activeHrsFloat > 0 ? (grossTotal / activeHrsFloat) : 0;
+    const taxes = grossTotal * 0.30;
+    const deduction = miles * 0.67;
+
+    const elTotal = document.getElementById('previewEditShiftTotal');
+    const elHourly = document.getElementById('previewEditShiftHourly');
+    const elTaxes = document.getElementById('previewEditShiftTaxes');
+    const elDeduct = document.getElementById('previewEditShiftDeduction');
+
+    if (elTotal) elTotal.textContent = `$${grossTotal.toFixed(2)}`;
+    if (elHourly) elHourly.textContent = `$${hourlyRate.toFixed(2)} / hr`;
+    if (elTaxes) elTaxes.textContent = `$${taxes.toFixed(2)}`;
+    if (elDeduct) elDeduct.textContent = `$${deduction.toFixed(2)}`;
+}
+
+async function submitEditShiftForm(event) {
+    if (event) event.preventDefault();
+
+    if (!currentAdminUser || !currentAdminUser.email) {
+        showHqToast('Please unlock Admin Access with your Google Account to edit shifts.', true);
+        openAdminAuthModal();
+        return;
+    }
+
+    const btn = document.getElementById('submitEditShiftBtn');
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = '⏳ Saving Changes...';
+    }
+
+    try {
+        const shiftId = document.getElementById('editShiftIdInput').value;
+        const year = document.getElementById('editShiftYearInput').value || '2026';
+        const month = document.getElementById('editShiftMonthInput').value || '';
+        const oldStart = document.getElementById('editShiftOldStartInput').value;
+
+        const startVal = document.getElementById('editShiftStartInput').value.replace('T', ' ');
+        const endVal = document.getElementById('editShiftEndInput').value.replace('T', ' ');
+        const activeHoursVal = document.getElementById('editShiftActiveHoursInput').value;
+        const milesVal = document.getElementById('editShiftMilesInput').value;
+        const deliveriesVal = document.getElementById('editShiftDeliveriesInput').value;
+        const noTipsVal = document.getElementById('editShiftNoTipsInput').value || '0';
+        const basePayVal = document.getElementById('editShiftBasePayInput').value;
+        const tipsVal = document.getElementById('editShiftTipsInput').value;
+        const cashTipsVal = document.getElementById('editShiftCashTipsInput').value || '0';
+
+        const { miscAmount, miscCategory, miscNote } = collectEditMiscPaySummary();
+
+        // Calculate hours formatted
+        const sDate = new Date(document.getElementById('editShiftStartInput').value);
+        const eDate = new Date(document.getElementById('editShiftEndInput').value);
+        let hoursFormatted = '';
+        if (!isNaN(sDate.getTime()) && !isNaN(eDate.getTime())) {
+            const diffMs = Math.max(0, eDate.getTime() - sDate.getTime());
+            const hrs = Math.floor(diffMs / 3600000);
+            const mins = Math.round((diffMs % 3600000) / 60000);
+            hoursFormatted = `${hrs}:${mins < 10 ? '0' + mins : mins}`;
+        }
+
+        const params = new URLSearchParams({
+            action: 'editShift',
+            adminEmail: currentAdminUser.email,
+            id: shiftId,
+            oldStart: oldStart,
+            year: String(year),
+            month: month,
+            start: startVal,
+            end: endVal,
+            hours: hoursFormatted,
+            activeHours: activeHoursVal,
+            miles: milesVal,
+            deliveries: deliveriesVal,
+            noTips: noTipsVal,
+            basePay: basePayVal,
+            tips: tipsVal,
+            cashTips: cashTipsVal,
+            miscAmount: String(miscAmount),
+            miscCategory: miscCategory,
+            miscNote: miscNote
+        });
+
+        const res = await fetch(`${API_BASE_URL}?${params.toString()}`);
+        const json = await res.json();
+
+        if (json && json.success && json.shift) {
+            const updated = json.shift;
+            const allShifts = Array.isArray(liveVaultData.shifts) ? liveVaultData.shifts : [];
+            const idx = allShifts.findIndex(s => {
+                if (shiftId && s.id && String(s.id).trim() === String(shiftId).trim()) return true;
+                if (oldStart && s.start && String(s.start).trim() === String(oldStart).trim()) return true;
+                return false;
+            });
+
+            if (idx !== -1) {
+                allShifts[idx] = { ...allShifts[idx], ...updated };
+            } else {
+                allShifts.push(updated);
+            }
+
+            if (json.updatedLifetime) {
+                if (!liveVaultData.ratings) liveVaultData.ratings = {};
+                liveVaultData.ratings.lifetime = Number(json.updatedLifetime);
+                latestRatingsState.lifetime = Number(json.updatedLifetime);
+            }
+
+            try {
+                localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData));
+                fetch(`${FIREBASE_DB_URL}/vault.json`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ ...liveVaultData, lastSynced: Date.now() })
+                }).catch(() => {});
+            } catch (e) {}
+
+            if (cachedRawCsvData) {
+                processData(cachedRawCsvData);
+            }
+            renderRecentShiftsSnapshot();
+            if (updated.month) {
+                expandedMonths[updated.month] = true;
+                renderMonthDrilldown(updated.month);
+            }
+
+            const reimbMsg = miscAmount > 0 ? ` (Reimbursements: $${miscAmount.toFixed(2)})` : '';
+            showHqToast(`Shift updated successfully!${reimbMsg}`);
+            closeEditShiftModal();
+        } else {
+            showHqToast((json && json.error) || 'Failed to update shift.', true);
+        }
+    } catch (err) {
+        console.error('Error updating shift:', err);
+        showHqToast('Error updating shift: ' + (err && err.message ? err.message : err), true);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = '💾 Save Shift Changes';
+        }
+    }
+}

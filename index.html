@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=5.0.0">
+    <link rel="stylesheet" href="styles.css?v=5.1.0">
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Chart.js for data visualization -->
@@ -76,7 +76,7 @@
             </div>
         </header>
 
-        <!-- CLEAN 4-TAB WORKSPACE NAVIGATION DOCK (v5.0.0) -->
+        <!-- CLEAN 4-TAB WORKSPACE NAVIGATION DOCK (v5.1.0) -->
         <nav class="workspace-nav-dock" id="workspaceNavDock" aria-label="Dashboard Workspace Sections">
             <button type="button" class="workspace-tab-btn active" id="wsTabBtnOverview" data-ws-tab="overview" onclick="switchWorkspaceTab('overview')">
                 <span class="ws-tab-icon">📊</span>
@@ -569,7 +569,7 @@
 
         <!-- FOOTER -->
         <footer class="dashboard-footer">
-            <p>Dasher Tracker HQ <span class="version-badge">v5.0.0</span> • Multi-Year Delivery Vault &amp; Tax Intelligence</p>
+            <p>Dasher Tracker HQ <span class="version-badge">v5.1.0</span> • Multi-Year Delivery Vault &amp; Tax Intelligence</p>
         </footer>
     </main>
 
@@ -967,9 +967,128 @@
         </div>
     </div>
 
+    <!-- 1-CLICK EDIT SHIFT & REIMBURSEMENTS MODAL (v5.1.0) -->
+    <div id="editShiftModalOverlay" class="hq-modal-overlay" style="display: none;" onclick="if(event.target===this) closeEditShiftModal()">
+        <div class="hq-modal-card add-data-modal-card" role="dialog" aria-modal="true" aria-labelledby="editShiftModalTitle">
+            <div class="hq-modal-header">
+                <div class="hq-modal-title-group">
+                    <span class="hq-modal-icon">✏️</span>
+                    <div>
+                        <h3 id="editShiftModalTitle">Edit Shift & Reimbursements</h3>
+                        <p class="hq-modal-sub" id="editShiftModalSub">Modify logged shift details, add reimbursements, and sync to Multi-Year Vault</p>
+                    </div>
+                </div>
+                <div class="hq-modal-header-right">
+                    <span class="admin-modal-badge" id="editShiftIdBadge">Shift ID: --</span>
+                    <button type="button" class="hq-modal-close" onclick="closeEditShiftModal()" aria-label="Close">&times;</button>
+                </div>
+            </div>
+
+            <div class="hq-modal-body">
+                <form id="hqFormEditShift" onsubmit="submitEditShiftForm(event)">
+                    <input type="hidden" id="editShiftIdInput">
+                    <input type="hidden" id="editShiftYearInput">
+                    <input type="hidden" id="editShiftMonthInput">
+                    <input type="hidden" id="editShiftOldStartInput">
+
+                    <div class="hq-form-grid-3">
+                        <div class="hq-field-group">
+                            <label for="editShiftStartInput">Start Date & Time</label>
+                            <input type="datetime-local" id="editShiftStartInput" class="hq-input" required oninput="recalcEditShiftPreview()">
+                        </div>
+                        <div class="hq-field-group">
+                            <label for="editShiftEndInput">End Date & Time</label>
+                            <input type="datetime-local" id="editShiftEndInput" class="hq-input" required oninput="recalcEditShiftPreview()">
+                        </div>
+                        <div class="hq-field-group">
+                            <label for="editShiftActiveHoursInput">Active Hours (HH:MM) <span class="auto-calc-hint" id="editShiftTotalHrsHint">Total: 0:00</span></label>
+                            <input type="text" id="editShiftActiveHoursInput" class="hq-input" placeholder="e.g. 5:36" required oninput="recalcEditShiftPreview()">
+                        </div>
+                    </div>
+
+                    <div class="hq-form-grid-3">
+                        <div class="hq-field-group">
+                            <label for="editShiftMilesInput">Miles Driven</label>
+                            <input type="number" step="0.01" min="0" id="editShiftMilesInput" class="hq-input" placeholder="e.g. 119.9" required oninput="recalcEditShiftPreview()">
+                        </div>
+                        <div class="hq-field-group">
+                            <label for="editShiftDeliveriesInput">Deliveries (#)</label>
+                            <input type="number" step="1" min="0" id="editShiftDeliveriesInput" class="hq-input" placeholder="e.g. 16" required oninput="recalcEditShiftPreview()">
+                        </div>
+                        <div class="hq-field-group">
+                            <label for="editShiftNoTipsInput"># of No-Tip Orders</label>
+                            <input type="number" step="1" min="0" id="editShiftNoTipsInput" class="hq-input" value="0" oninput="recalcEditShiftPreview()">
+                        </div>
+                    </div>
+
+                    <div class="hq-form-grid-3">
+                        <div class="hq-field-group">
+                            <label for="editShiftBasePayInput">Base Pay ($)</label>
+                            <input type="number" step="0.01" min="0" id="editShiftBasePayInput" class="hq-input" placeholder="e.g. 59.95" required oninput="recalcEditShiftPreview()">
+                        </div>
+                        <div class="hq-field-group">
+                            <label for="editShiftTipsInput">In-App Tips ($)</label>
+                            <input type="number" step="0.01" min="0" id="editShiftTipsInput" class="hq-input" placeholder="e.g. 42.50" required oninput="recalcEditShiftPreview()">
+                        </div>
+                        <div class="hq-field-group">
+                            <label for="editShiftCashTipsInput">Cash Tips ($)</label>
+                            <input type="number" step="0.01" min="0" id="editShiftCashTipsInput" class="hq-input" value="0.00" oninput="recalcEditShiftPreview()">
+                        </div>
+                    </div>
+
+                    <!-- DEDICATED REIMBURSEMENT & MISC PAY SECTION -->
+                    <div class="misc-pay-subcard" style="border-color: rgba(56, 189, 248, 0.4); background: rgba(15, 23, 42, 0.75);">
+                        <div class="misc-pay-header">
+                            <div class="misc-pay-title-wrap">
+                                <span class="misc-badge-icon" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">💵</span>
+                                <div>
+                                    <h4 style="color: #38bdf8;">Reimbursements & Misc Pay Breakdown</h4>
+                                    <p>Add closed-store half pay, cancelled order compensations, peak pay, or extra delivery fees</p>
+                                </div>
+                            </div>
+                            <button type="button" class="add-misc-row-btn" onclick="addEditMiscPayRow()">+ Add Another Item</button>
+                        </div>
+
+                        <div id="editMiscPayRowsContainer" class="misc-rows-container">
+                            <!-- Injected dynamically by openEditShiftModal -->
+                        </div>
+                    </div>
+
+                    <!-- LIVE AUTO-CALCULATED FORMULA PREVIEW BAR -->
+                    <div class="hq-live-preview-bar">
+                        <div class="preview-metric">
+                            <span class="preview-label">💰 Shift Gross Total</span>
+                            <span class="preview-val emerald" id="previewEditShiftTotal">$0.00</span>
+                        </div>
+                        <div class="preview-metric">
+                            <span class="preview-label">⚡ Active Hourly Rate</span>
+                            <span class="preview-val cyan" id="previewEditShiftHourly">$0.00 / hr</span>
+                        </div>
+                        <div class="preview-metric">
+                            <span class="preview-label">🧾 30% Tax Set-Aside</span>
+                            <span class="preview-val amber" id="previewEditShiftTaxes">$0.00</span>
+                        </div>
+                        <div class="preview-metric">
+                            <span class="preview-label">🛡️ IRS Mileage Write-Off</span>
+                            <span class="preview-val purple" id="previewEditShiftDeduction">$0.00</span>
+                        </div>
+                    </div>
+
+                    <div class="hq-modal-footer">
+                        <span class="vault-target-indicator" id="editShiftVaultTargetBadge">🏛️ Target: Vault</span>
+                        <div class="hq-footer-btn-group">
+                            <button type="button" class="hq-clear-btn" onclick="closeEditShiftModal()">Cancel</button>
+                            <button type="submit" id="submitEditShiftBtn" class="hq-submit-btn" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);">💾 Save Shift Changes</button>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
     <!-- TOAST NOTIFICATION CONTAINER -->
     <div id="hqToastContainer" class="hq-toast-container"></div>
 
-    <script src="script.js?v=5.0.0"></script>
+    <script src="script.js?v=5.1.0"></script>
 </body>
 </html>

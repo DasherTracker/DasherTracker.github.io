@@ -2718,4 +2718,45 @@ tfoot td {
     }
 }
 
+/* 1-CLICK EDIT SHIFT BUTTONS (v5.1.0) */
+.btn-shift-edit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.3rem;
+    padding: 0.32rem 0.65rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    font-family: inherit;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    border: 1px solid rgba(56, 189, 248, 0.35);
+    border-radius: var(--radius-sm);
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    white-space: nowrap;
+    line-height: 1;
+}
+
+.btn-shift-edit:hover {
+    background: rgba(56, 189, 248, 0.25);
+    border-color: #38bdf8;
+    color: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(56, 189, 248, 0.3);
+}
+
+.btn-shift-edit:active {
+    transform: translateY(0);
+}
+
+.btn-shift-edit-sm {
+    padding: 0.22rem 0.5rem;
+    font-size: 0.68rem;
+}
+
+.drilldown-mini-table th:last-child,
+.drilldown-mini-table td:last-child {
+    text-align: center;
+}
 

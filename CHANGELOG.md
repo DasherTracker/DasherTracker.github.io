@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.1.0] - 2026-11-11
+### Added
+- Added 1-click edit shift button across all shift views.
+- Added dedicated modal to add and edit shift reimbursements.
+- Added real-time auto-calculation of gross total, rate, and taxes.
+- Updated Google Apps Script deployment with live shift editing sync.
+
 ## [5.0.0] - 2026-11-07
 ### Added
 - Redesigned site into clean four-tab workspace dock.
