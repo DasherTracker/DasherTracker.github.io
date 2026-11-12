@@ -1,6 +1,6 @@
 /* ==========================================================================
 /* ==========================================================================
-   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v5.1.0)
+   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v5.2.0)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
@@ -2078,9 +2078,11 @@ function resetShiftFormClean() {
                 const sel = r.querySelector('.misc-type-select');
                 const amt = r.querySelector('.misc-amount-input');
                 const note = r.querySelector('.misc-note-input');
+                const dateEl = r.querySelector('.misc-date-input');
                 if (sel) sel.value = '';
                 if (amt) amt.value = '0.00';
                 if (note) note.value = '';
+                if (dateEl) { delete dateEl.dataset.touched; dateEl.value = getShiftFormDefaultIsoDate(); }
             } else {
                 r.remove();
             }
@@ -2202,6 +2204,10 @@ function addMiscPayRow() {
             </select>
         </div>
         <div class="hq-field-group">
+            <label>📅 Date</label>
+            <input type="date" class="hq-input misc-date-input" value="${getShiftFormDefaultIsoDate()}" oninput="this.dataset.touched='1'; recalcShiftPreview()">
+        </div>
+        <div class="hq-field-group">
             <label>Misc Amount ($)</label>
             <input type="number" step="0.01" min="0" class="hq-input misc-amount-input" value="0.00" placeholder="0.00" oninput="recalcShiftPreview()">
         </div>
@@ -2216,7 +2222,47 @@ function addMiscPayRow() {
 }
 
 function collectMiscPaySummary() {
-    const rows = document.querySelectorAll('#miscPayRowsContainer .misc-pay-row');
+    return collectMiscRowsSummary('#miscPayRowsContainer', 'Misc Pay');
+}
+
+/* --- v5.2.0: Dated Reimbursement / Bonus Helpers --- */
+function isoDateToDisplay(iso) {
+    const m = String(iso || '').match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    return m ? `${parseInt(m[2], 10)}/${parseInt(m[3], 10)}/${m[1]}` : '';
+}
+
+function displayDateToIso(disp) {
+    const m = String(disp || '').match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
+    return m ? `${m[3]}-${m[1].padStart(2, '0')}-${m[2].padStart(2, '0')}` : '';
+}
+
+function todayIsoDate() {
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+function getShiftFormDefaultIsoDate() {
+    const el = document.getElementById('shiftStartInput');
+    const v = el ? String(el.value || '') : '';
+    return /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : todayIsoDate();
+}
+
+function getEditFormDefaultIsoDate() {
+    const el = document.getElementById('editShiftStartInput');
+    const v = el ? String(el.value || '') : '';
+    return /^\d{4}-\d{2}-\d{2}/.test(v) ? v.slice(0, 10) : todayIsoDate();
+}
+
+// Keeps untouched misc date pickers synced with the shift start date
+function syncUntouchedMiscDates(containerSelector, isoDate) {
+    if (!isoDate) return;
+    document.querySelectorAll(`${containerSelector} .misc-date-input`).forEach(el => {
+        if (el.dataset.touched !== '1') el.value = isoDate;
+    });
+}
+
+function collectMiscRowsSummary(containerSelector, fallbackCat) {
+    const rows = document.querySelectorAll(`${containerSelector} .misc-pay-row`);
     let totalMiscAmount = 0;
     const categories = [];
     const notesParts = [];
@@ -2225,23 +2271,26 @@ function collectMiscPaySummary() {
         const typeEl = r.querySelector('.misc-type-select');
         const amtEl = r.querySelector('.misc-amount-input');
         const noteEl = r.querySelector('.misc-note-input');
+        const dateEl = r.querySelector('.misc-date-input');
 
         const typeVal = typeEl ? typeEl.value.trim() : '';
         const amtVal = amtEl ? (parseFloat(amtEl.value) || 0) : 0;
         const noteVal = noteEl ? noteEl.value.trim() : '';
+        const dateDisp = dateEl ? isoDateToDisplay(dateEl.value) : '';
+        const datePrefix = dateDisp ? `[${dateDisp}] ` : '';
 
         if (amtVal > 0 || noteVal) {
             totalMiscAmount += amtVal;
-            const cleanCat = typeVal ? typeVal.replace(/^[^\w]+/, '').trim() : 'Misc Pay';
+            const cleanCat = typeVal ? typeVal.replace(/^[^\w]+/, '').trim() : fallbackCat;
             if (cleanCat && !categories.includes(cleanCat)) {
                 categories.push(cleanCat);
             }
             if (noteVal && amtVal > 0) {
-                notesParts.push(`${cleanCat} ($${amtVal.toFixed(2)}): ${noteVal}`);
+                notesParts.push(`${datePrefix}${cleanCat} ($${amtVal.toFixed(2)}): ${noteVal}`);
             } else if (noteVal) {
-                notesParts.push(`${cleanCat}: ${noteVal}`);
+                notesParts.push(`${datePrefix}${cleanCat}: ${noteVal}`);
             } else if (amtVal > 0) {
-                notesParts.push(`${cleanCat}: $${amtVal.toFixed(2)}`);
+                notesParts.push(`${datePrefix}${cleanCat}: $${amtVal.toFixed(2)}`);
             }
         }
     });
@@ -2251,6 +2300,37 @@ function collectMiscPaySummary() {
         miscCategory: categories.join(' + '),
         miscNote: notesParts.join(' | ')
     };
+}
+
+// Parses stored miscNote back into structured rows (date, category, amount, note)
+function parseMiscNoteToRows(miscNote, miscCategory, miscAmount) {
+    const note = String(miscNote || '').trim();
+    const total = Number(miscAmount || 0);
+    if (!note) {
+        return (total > 0 || miscCategory) ? [{ date: '', cat: String(miscCategory || ''), amount: total, note: '' }] : [];
+    }
+    const re = /^(?:\[(\d{1,2}\/\d{1,2}\/\d{4})\]\s*)?(?:([A-Za-z][A-Za-z /+&-]*?)\s*(?:\(\$([\d.]+)\))?:\s*)?(.*)$/;
+    const parts = note.split(' | ').map(p => {
+        const m = p.trim().match(re) || [];
+        let txt = (m[4] || '').trim();
+        let amt = m[3] !== undefined ? parseFloat(m[3]) : null;
+        // "Category: $12.00" form (amount only, no note)
+        const amtOnly = txt.match(/^\$([\d.]+)$/);
+        if (amtOnly && m[2]) { amt = parseFloat(amtOnly[1]); txt = ''; }
+        return { date: m[1] || '', cat: (m[2] || '').trim(), amount: amt, note: txt };
+    });
+    // If only one part, or amounts don't itemize, put the full total on the first row
+    const itemized = parts.every(p => p.amount !== null);
+    if (!itemized || parts.length === 1) {
+        parts.forEach((p, i) => { p.amount = (i === 0) ? total : (p.amount || 0); });
+        if (parts.length > 1 && !itemized) {
+            parts[0].note = parts.map(p => p.note).filter(Boolean).join(' | ');
+            parts[0].cat = parts[0].cat || String(miscCategory || '');
+            return [parts[0]];
+        }
+    }
+    if (!parts[0].cat) parts[0].cat = String(miscCategory || '');
+    return parts;
 }
 
 function recalcShiftPreview() {
@@ -2284,6 +2364,7 @@ function recalcShiftPreview() {
 
     const hintEl = document.getElementById('shiftTotalHrsHint');
     if (hintEl) hintEl.textContent = `Total: ${calcHoursFormatted}`;
+    syncUntouchedMiscDates('#miscPayRowsContainer', getShiftFormDefaultIsoDate());
 
     const targetBadge = document.getElementById('shiftVaultTargetBadge');
     if (targetBadge) targetBadge.textContent = `🏛️ Target: ${targetMonth} ${targetYear} Vault`;
@@ -2885,17 +2966,15 @@ function openEditShiftModal(shiftId, startStr) {
     document.getElementById('editShiftTipsInput').value = shift.tips !== undefined ? Number(shift.tips).toFixed(2) : '';
     document.getElementById('editShiftCashTipsInput').value = shift.cashTips !== undefined ? Number(shift.cashTips).toFixed(2) : '0.00';
 
-    // Populate Reimbursements & Misc Rows
+    // Populate Reimbursements & Misc Rows (v5.2.0: restores per-item dates)
     const container = document.getElementById('editMiscPayRowsContainer');
     if (container) {
         container.innerHTML = '';
-        const amt = Number(shift.miscAmount || 0);
-        const cat = String(shift.miscCategory || '');
-        const note = String(shift.miscNote || '');
-        if (amt > 0 || cat || note) {
-            addEditMiscPayRow(cat || '💵 Reimbursement', amt, note);
+        const parsedRows = parseMiscNoteToRows(shift.miscNote, shift.miscCategory, shift.miscAmount);
+        if (parsedRows.length > 0) {
+            parsedRows.forEach(p => addEditMiscPayRow(p.cat || '💵 Reimbursement', p.amount || 0, p.note, displayDateToIso(p.date)));
         } else {
-            addEditMiscPayRow('💵 Reimbursement', 0, '');
+            addEditMiscPayRow('💵 Reimbursement', 0, '', '');
         }
     }
 
@@ -2923,7 +3002,7 @@ function closeEditShiftModal() {
     }
 }
 
-function addEditMiscPayRow(initialType, initialAmount, initialNote) {
+function addEditMiscPayRow(initialType, initialAmount, initialNote, initialIsoDate) {
     const container = document.getElementById('editMiscPayRowsContainer');
     if (!container) return;
     const row = document.createElement('div');
@@ -2931,6 +3010,8 @@ function addEditMiscPayRow(initialType, initialAmount, initialNote) {
     const typeVal = initialType || '💵 Reimbursement';
     const amtVal = (initialAmount !== undefined && initialAmount !== null) ? Number(initialAmount).toFixed(2) : '0.00';
     const noteVal = initialNote || '';
+    const hasOwnDate = /^\d{4}-\d{2}-\d{2}$/.test(String(initialIsoDate || ''));
+    const dateVal = hasOwnDate ? initialIsoDate : getEditFormDefaultIsoDate();
 
     row.innerHTML = `
         <div class="hq-field-group">
@@ -2941,6 +3022,10 @@ function addEditMiscPayRow(initialType, initialAmount, initialNote) {
                 <option value="📦 Extra Delivery Fee" ${typeVal.indexOf('Extra') !== -1 ? 'selected' : ''}>📦 Extra Delivery Fee</option>
                 <option value="🎉 Other Misc Pay" ${typeVal.indexOf('Other') !== -1 ? 'selected' : ''}>🎉 Other Misc Pay</option>
             </select>
+        </div>
+        <div class="hq-field-group">
+            <label>📅 Date</label>
+            <input type="date" class="hq-input misc-date-input" value="${dateVal}" ${hasOwnDate ? 'data-touched="1"' : ''} oninput="this.dataset.touched='1'; recalcEditShiftPreview()">
         </div>
         <div class="hq-field-group">
             <label>Misc Amount ($)</label>
@@ -2957,41 +3042,9 @@ function addEditMiscPayRow(initialType, initialAmount, initialNote) {
 }
 
 function collectEditMiscPaySummary() {
-    const rows = document.querySelectorAll('#editMiscPayRowsContainer .misc-pay-row');
-    let totalMiscAmount = 0;
-    const categories = [];
-    const notesParts = [];
-
-    rows.forEach(r => {
-        const typeEl = r.querySelector('.misc-type-select');
-        const amtEl = r.querySelector('.misc-amount-input');
-        const noteEl = r.querySelector('.misc-note-input');
-
-        const typeVal = typeEl ? typeEl.value.trim() : '';
-        const amtVal = amtEl ? (parseFloat(amtEl.value) || 0) : 0;
-        const noteVal = noteEl ? noteEl.value.trim() : '';
-
-        if (amtVal > 0 || noteVal) {
-            totalMiscAmount += amtVal;
-            const cleanCat = typeVal ? typeVal.replace(/^[^\w]+/, '').trim() : 'Reimbursement';
-            if (cleanCat && !categories.includes(cleanCat)) {
-                categories.push(cleanCat);
-            }
-            if (noteVal && amtVal > 0) {
-                notesParts.push(`${cleanCat} ($${amtVal.toFixed(2)}): ${noteVal}`);
-            } else if (noteVal) {
-                notesParts.push(`${cleanCat}: ${noteVal}`);
-            } else if (amtVal > 0) {
-                notesParts.push(`${cleanCat}: $${amtVal.toFixed(2)}`);
-            }
-        }
-    });
-
-    return {
-        miscAmount: parseFloat(totalMiscAmount.toFixed(2)),
-        miscCategory: categories.join(' + ') || (totalMiscAmount > 0 ? 'Reimbursement' : ''),
-        miscNote: notesParts.join(' | ')
-    };
+    const s = collectMiscRowsSummary('#editMiscPayRowsContainer', 'Reimbursement');
+    if (!s.miscCategory && s.miscAmount > 0) s.miscCategory = 'Reimbursement';
+    return s;
 }
 
 function recalcEditShiftPreview() {
@@ -3011,6 +3064,7 @@ function recalcEditShiftPreview() {
     }
     const hint = document.getElementById('editShiftTotalHrsHint');
     if (hint) hint.textContent = `Total: ${totalHrsStr}`;
+    syncUntouchedMiscDates('#editMiscPayRowsContainer', getEditFormDefaultIsoDate());
 
     const activeHoursStr = document.getElementById('editShiftActiveHoursInput').value || totalHrsStr;
     const activeHrsFloat = parseHoursToNumber(activeHoursStr) || totalHrs || 1;

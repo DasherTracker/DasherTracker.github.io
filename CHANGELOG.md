@@ -1,5 +1,12 @@
 # Changelog
 
+## [5.2.0] - 2026-11-11
+### Added
+- Added date picker to every reimbursement and bonus row.
+- Reimbursement dates auto-fill from the shift start date.
+- Dated payouts now logged to your Vault notes.
+- Editing a shift restores each reimbursement's saved date.
+
 ## [5.1.0] - 2026-11-11
 ### Added
 - Added 1-click edit shift button across all shift views.

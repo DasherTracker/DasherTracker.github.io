@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=5.1.0">
+    <link rel="stylesheet" href="styles.css?v=5.2.0">
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Chart.js for data visualization -->
@@ -569,7 +569,7 @@
 
         <!-- FOOTER -->
         <footer class="dashboard-footer">
-            <p>Dasher Tracker HQ <span class="version-badge">v5.1.0</span> • Multi-Year Delivery Vault &amp; Tax Intelligence</p>
+            <p>Dasher Tracker HQ <span class="version-badge">v5.2.0</span> • Multi-Year Delivery Vault &amp; Tax Intelligence</p>
         </footer>
     </main>
 
@@ -705,6 +705,10 @@
                                         <option value="📦 Extra Delivery Fee">📦 Extra Delivery Fee</option>
                                         <option value="🎉 Other Misc Pay">🎉 Other Misc Pay</option>
                                     </select>
+                                </div>
+                                <div class="hq-field-group">
+                                    <label>📅 Date</label>
+                                    <input type="date" class="hq-input misc-date-input" oninput="this.dataset.touched='1'; recalcShiftPreview()">
                                 </div>
                                 <div class="hq-field-group">
                                     <label>Misc Amount ($)</label>
@@ -1089,6 +1093,6 @@
     <!-- TOAST NOTIFICATION CONTAINER -->
     <div id="hqToastContainer" class="hq-toast-container"></div>
 
-    <script src="script.js?v=5.1.0"></script>
+    <script src="script.js?v=5.2.0"></script>
 </body>
 </html>
