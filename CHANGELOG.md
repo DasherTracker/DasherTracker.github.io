@@ -1,5 +1,11 @@
 # Changelog
 
+## [6.0.2] - 2026-11-17
+### Added
+- Added stationary Next and Back buttons for one-spot clicking.
+- Pressing Enter advances through inputs and into next section.
+- Auto-focuses first input when stepping to a new section.
+
 ## [6.0.1] - 2026-11-17
 ### Fixed
 - Side tabs now display only their selected page cleanly.

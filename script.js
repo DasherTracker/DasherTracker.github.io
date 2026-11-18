@@ -1,5 +1,5 @@
 /* ==========================================================================
-   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v6.0.1)
+   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v6.0.2)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
@@ -2269,6 +2269,91 @@ function eosJumpTo(sec) {
 
     const body = document.getElementById('eosBody');
     if (body) body.scrollTop = 0;
+    updateEosStepNavButtons();
+
+    if (arguments[1]) {
+        const targetScope = sec === 'all' ? body : document.getElementById(eosSectionId(sec));
+        if (targetScope) {
+            const firstField = Array.from(targetScope.querySelectorAll('input, select')).find(f =>
+                f.type !== 'hidden' && f.type !== 'checkbox' && !f.disabled && f.offsetParent !== null
+            );
+            if (firstField) firstField.focus();
+        }
+    }
+}
+
+const EOS_STEP_LABELS = {
+    time: 'Time & Distance',
+    earn: 'Earnings',
+    misc: 'Reimb. & Bonuses',
+    gas: 'Gas',
+    expense: 'Expenses',
+    ratings: 'Ratings',
+    all: 'All Sections'
+};
+
+function getAllowedEosSteps() {
+    if (currentEosMode === 'gas') return ['gas'];
+    if (currentEosMode === 'edit') return ['time', 'earn', 'misc', 'all'];
+    return ['time', 'earn', 'misc', 'gas', 'expense', 'ratings', 'all'];
+}
+
+function updateEosStepNavButtons() {
+    const prevBtn = document.getElementById('eosPrevStepBtn');
+    const nextBtn = document.getElementById('eosNextStepBtn');
+    if (!prevBtn || !nextBtn) return;
+
+    if (currentEosMode === 'gas') {
+        prevBtn.style.display = 'none';
+        nextBtn.style.display = 'none';
+        return;
+    }
+
+    prevBtn.style.display = '';
+    nextBtn.style.display = '';
+    const steps = getAllowedEosSteps();
+    const idx = Math.max(0, steps.indexOf(activeRailSec));
+
+    prevBtn.disabled = idx <= 0;
+    if (idx < steps.length - 1) {
+        nextBtn.disabled = false;
+        nextBtn.textContent = `Next: ${EOS_STEP_LABELS[steps[idx + 1]] || 'Next'} →`;
+    } else {
+        nextBtn.disabled = true;
+        nextBtn.textContent = '✓ All Steps Viewed';
+    }
+}
+
+function eosStepRelative(delta) {
+    const steps = getAllowedEosSteps();
+    const cur = Math.max(0, steps.indexOf(activeRailSec));
+    const nextIdx = Math.max(0, Math.min(steps.length - 1, cur + delta));
+    if (nextIdx !== cur || steps.length === 1) {
+        eosJumpTo(steps[nextIdx], true);
+    }
+}
+
+function onEosFormKeyDown(event) {
+    if (!event || event.key !== 'Enter') return;
+    const t = event.target;
+    if (!t || !t.closest || !t.closest('#eosBody')) return;
+    if (t.tagName === 'BUTTON' || t.tagName === 'TEXTAREA') return;
+
+    event.preventDefault();
+    const scope = activeRailSec === 'all'
+        ? document.getElementById('eosBody')
+        : document.getElementById(eosSectionId(activeRailSec));
+    if (!scope) return;
+
+    const fields = Array.from(scope.querySelectorAll('input, select')).filter(f =>
+        f.type !== 'hidden' && f.type !== 'checkbox' && !f.disabled && f.offsetParent !== null
+    );
+    const pos = fields.indexOf(t);
+    if (pos !== -1 && pos < fields.length - 1) {
+        fields[pos + 1].focus();
+    } else if (activeRailSec !== 'all') {
+        eosStepRelative(1);
+    }
 }
 
 function onEosToggleSection(sec, checked) {

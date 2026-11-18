@@ -3086,4 +3086,26 @@ tfoot td {
     }
 }
 
+.eos-step-nav-btn {
+    white-space: nowrap;
+}
+
+.eos-next-btn {
+    background: rgba(56, 189, 248, 0.16);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    color: #38bdf8;
+    font-weight: 700;
+}
+
+.eos-next-btn:hover:not(:disabled) {
+    background: rgba(56, 189, 248, 0.28);
+    border-color: #38bdf8;
+    color: #ffffff;
+}
+
+.eos-step-nav-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+}
+
 

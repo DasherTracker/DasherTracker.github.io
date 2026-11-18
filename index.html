@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=6.0.1">
+    <link rel="stylesheet" href="styles.css?v=6.0.2">
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Chart.js for data visualization -->
@@ -570,7 +570,7 @@
 
         <!-- FOOTER -->
         <footer class="dashboard-footer">
-            <p>Dasher Tracker HQ <span class="version-badge">v6.0.1</span> • Multi-Year Delivery Vault &amp; Tax Intelligence</p>
+            <p>Dasher Tracker HQ <span class="version-badge">v6.0.2</span> • Multi-Year Delivery Vault &amp; Tax Intelligence</p>
         </footer>
     </main>
 
@@ -628,7 +628,7 @@
                 </div>
             </div>
 
-            <form id="eosForm" class="eos-layout" novalidate onsubmit="submitEndOfShift(event)" oninput="onEosFormInput()" onchange="onEosFormInput()">
+            <form id="eosForm" class="eos-layout" novalidate onsubmit="submitEndOfShift(event)" oninput="onEosFormInput()" onchange="onEosFormInput()" onkeydown="onEosFormKeyDown(event)">
                 <input type="hidden" id="editShiftIdInput">
                 <input type="hidden" id="editShiftYearInput">
                 <input type="hidden" id="editShiftMonthInput">
@@ -1021,6 +1021,8 @@
                 <div class="hq-modal-footer eos-footer-actions">
                     <span class="vault-target-indicator" id="shiftVaultTargetBadge">🏛️ Target: 2026 Vault</span>
                     <div class="hq-footer-btn-group">
+                        <button type="button" id="eosPrevStepBtn" class="hq-clear-btn eos-step-nav-btn" onclick="eosStepRelative(-1)">← Back</button>
+                        <button type="button" id="eosNextStepBtn" class="hq-clear-btn eos-step-nav-btn eos-next-btn" onclick="eosStepRelative(1)">Next: Earnings →</button>
                         <button type="button" id="clearShiftFormBtn" class="hq-clear-btn" onclick="resetEndOfShiftAll(true)">🧹 Clear</button>
                         <button type="button" id="saveDraftBtn" class="hq-clear-btn" onclick="saveEosDraft(true)">💾 Save Draft</button>
                         <button type="submit" id="submitShiftBtn" class="hq-submit-btn">🚀 Save Everything</button>
@@ -1034,6 +1036,6 @@
     <!-- TOAST NOTIFICATION CONTAINER -->
     <div id="hqToastContainer" class="hq-toast-container"></div>
 
-    <script src="script.js?v=6.0.1"></script>
+    <script src="script.js?v=6.0.2"></script>
 </body>
 </html>
