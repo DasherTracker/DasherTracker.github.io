@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.2.0] - 2026-11-17
+### Added
+- Added Month Dropdown Spotlight view for clutter-free monthly insights.
+- Added Previous, Next, and Year Total quick month controls.
+- Added four hero KPI cards and three breakdown cards.
+- Automatically displays selected month's Shift and Gas logs below.
+
 ## [6.1.1] - 2026-11-17
 ### Fixed
 - Removed Inspect Shift and Gas Logs dropdown from Month Cards.

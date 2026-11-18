@@ -1,5 +1,5 @@
 /* ==========================================================================
-   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v6.1.1)
+   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v6.2.0)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
@@ -1040,8 +1040,10 @@ function getVaultRecordsForMonth(monthName) {
     return { shifts, gas };
 }
 
-let currentMonthlyViewMode = 'table'; // 'table' | 'cards'
+let currentMonthlyViewMode = 'spotlight'; // 'spotlight' | 'table' | 'cards'
+let currentSpotlightMonth = '';
 let lastRenderedMonthlyRows = [];
+let lastRenderedTotalInfo = null;
 
 function parseMoneyVal(v) {
     return parseFloat(String(v || '0').replace(/[^0-9.-]/g, '')) || 0;
@@ -1052,18 +1054,217 @@ function fmtMoneyVal(n) {
 }
 
 function switchMonthlyViewMode(mode) {
-    currentMonthlyViewMode = (mode === 'cards') ? 'cards' : 'table';
+    currentMonthlyViewMode = (mode === 'table' || mode === 'cards') ? mode : 'spotlight';
+    const spotWrap = document.getElementById('monthlySpotlightViewWrap');
     const tblWrap = document.getElementById('monthlyTableViewWrap');
     const cardsEl = document.getElementById('monthlyCardsGrid');
+    const btnSpot = document.getElementById('monthlyViewBtnSpotlight');
     const btnTbl = document.getElementById('monthlyViewBtnTable');
     const btnCards = document.getElementById('monthlyViewBtnCards');
+    if (btnSpot) btnSpot.classList.toggle('active', currentMonthlyViewMode === 'spotlight');
     if (btnTbl) btnTbl.classList.toggle('active', currentMonthlyViewMode === 'table');
     if (btnCards) btnCards.classList.toggle('active', currentMonthlyViewMode === 'cards');
+    if (spotWrap) spotWrap.style.display = currentMonthlyViewMode === 'spotlight' ? 'flex' : 'none';
     if (tblWrap) tblWrap.style.display = currentMonthlyViewMode === 'table' ? '' : 'none';
     if (cardsEl) cardsEl.style.display = currentMonthlyViewMode === 'cards' ? 'grid' : 'none';
-    if (currentMonthlyViewMode === 'cards' && lastRenderedMonthlyRows.length > 0) {
+    if (currentMonthlyViewMode === 'spotlight') {
+        renderMonthlySpotlight();
+    } else if (currentMonthlyViewMode === 'cards' && lastRenderedMonthlyRows.length > 0) {
         renderMonthlyCards(lastRenderedMonthlyRows);
     }
+}
+
+function getSpotlightMonthPool() {
+    const active = lastRenderedMonthlyRows.filter(r =>
+        (r.totalPayNum || 0) > 0 || (r.deliveries || 0) > 0 || (r.gasNum || 0) > 0 || getVaultRecordsForMonth(r.month).shifts.length > 0
+    );
+    return active.length > 0 ? active : lastRenderedMonthlyRows;
+}
+
+function selectSpotlightMonth(monthVal) {
+    currentSpotlightMonth = String(monthVal || '').trim();
+    renderMonthlySpotlight();
+}
+
+function stepSpotlightMonth(delta) {
+    const pool = getSpotlightMonthPool();
+    if (pool.length === 0) return;
+    if (currentSpotlightMonth === 'ALL_TOTAL') {
+        currentSpotlightMonth = delta < 0 ? pool[pool.length - 1].month : pool[0].month;
+        renderMonthlySpotlight();
+        return;
+    }
+    const idx = pool.findIndex(r => r.month === currentSpotlightMonth);
+    const cur = idx !== -1 ? idx : pool.length - 1;
+    const nextIdx = Math.max(0, Math.min(pool.length - 1, cur + delta));
+    currentSpotlightMonth = pool[nextIdx].month;
+    renderMonthlySpotlight();
+}
+
+function renderMonthlySpotlight() {
+    const selEl = document.getElementById('monthlySpotlightSelect');
+    const badgesEl = document.getElementById('msBadgesRow');
+    const bodyEl = document.getElementById('msContentBody');
+    const prevBtn = document.getElementById('msPrevMonthBtn');
+    const nextBtn = document.getElementById('msNextMonthBtn');
+    const totalBtn = document.getElementById('msYearTotalBtn');
+    if (!selEl || !bodyEl) return;
+
+    const pool = getSpotlightMonthPool();
+    if (pool.length === 0 && !lastRenderedTotalInfo) {
+        bodyEl.innerHTML = '<div class="ms-total-hint-banner">No monthly data loaded yet.</div>';
+        return;
+    }
+
+    if (currentSpotlightMonth !== 'ALL_TOTAL') {
+        const exists = pool.some(r => r.month === currentSpotlightMonth);
+        if (!exists && pool.length > 0) {
+            currentSpotlightMonth = pool[pool.length - 1].month;
+        }
+    }
+
+    let maxPay = 0;
+    let maxRate = 0;
+    pool.forEach(r => {
+        if ((r.totalPayNum || 0) > maxPay) maxPay = r.totalPayNum;
+        if ((r.hourlyRateNum || 0) > maxRate) maxRate = r.hourlyRateNum;
+    });
+
+    selEl.innerHTML = pool.map(r => {
+        const { shifts } = getVaultRecordsForMonth(r.month);
+        const sTxt = shifts.length > 0 ? `${shifts.length} shifts — ` : '';
+        return `<option value="${escapeHtml(r.month)}">${escapeHtml(r.month)} (${sTxt}${escapeHtml(r.totalPay)})</option>`;
+    }).join('') + `<option value="ALL_TOTAL">📊 Full Year Total</option>`;
+
+    selEl.value = currentSpotlightMonth || (pool[pool.length - 1] && pool[pool.length - 1].month) || 'ALL_TOTAL';
+    if (totalBtn) totalBtn.classList.toggle('active', currentSpotlightMonth === 'ALL_TOTAL');
+
+    const curIdx = pool.findIndex(r => r.month === currentSpotlightMonth);
+    if (prevBtn) prevBtn.disabled = (currentSpotlightMonth !== 'ALL_TOTAL' && curIdx <= 0) || pool.length === 0;
+    if (nextBtn) nextBtn.disabled = (currentSpotlightMonth !== 'ALL_TOTAL' && curIdx >= pool.length - 1) || pool.length === 0;
+
+    let vm = null;
+    let badgesHtml = '';
+    let logsHtml = '';
+
+    if (currentSpotlightMonth === 'ALL_TOTAL' && lastRenderedTotalInfo && lastRenderedTotalInfo.row) {
+        const tr = lastRenderedTotalInfo.row;
+        const milesTotal = lastRenderedTotalInfo.totalMiles || parseMoneyVal(tr[3]) || 0;
+        const grossNum = parseMoneyVal(tr[9]);
+        const taxNum = parseMoneyVal(tr[8]);
+        const gasNum = parseMoneyVal(tr[13]);
+        const delivNum = Math.round(parseMoneyVal(tr[4]));
+        const noTipNum = Math.round(parseMoneyVal(tr[11]));
+        const tippedNum = Math.max(0, delivNum - noTipNum);
+        const pctTipped = delivNum > 0 ? ((tippedNum / delivNum) * 100).toFixed(1) : '0.0';
+        const tipsComb = parseMoneyVal(tr[6]) + parseMoneyVal(tr[7]);
+
+        vm = {
+            gross: tr[9] || '$0.00',
+            net: fmtMoneyVal(grossNum - taxNum - gasNum),
+            hourly: tr[10] || '$0.00',
+            actHrs: tr[2] || '0:00',
+            dashHrs: tr[1] || '0:00',
+            irs: fmtMoneyVal(milesTotal * IRS_MILEAGE_RATE),
+            miles: tr[3] || '0',
+            deliv: delivNum.toLocaleString('en-US'),
+            tipped: `${tippedNum.toLocaleString('en-US')} (${pctTipped}%)`,
+            noTip: `${noTipNum.toLocaleString('en-US')} (${tr[12] || '0%'})`,
+            base: tr[5] || '$0.00',
+            tips: tr[6] || '$0.00',
+            cash: tr[7] || '$0.00',
+            tipsComb: fmtMoneyVal(tipsComb),
+            tax: tr[8] || '$0.00',
+            gas: tr[13] || '$0.00'
+        };
+        badgesHtml = `<span class="badge-tag" style="background:rgba(56,189,248,0.14);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);">${pool.length} Active Months</span><span class="mcell-rate-pill">${escapeHtml(vm.hourly)}/hr</span>`;
+        logsHtml = `<div class="ms-total-hint-banner">Select any individual month from the dropdown above to inspect or ✏️ edit its Shift &amp; Gas logs.</div>`;
+    } else {
+        const r = pool.find(x => x.month === currentSpotlightMonth) || pool[pool.length - 1];
+        if (!r) return;
+        const { shifts } = getVaultRecordsForMonth(r.month);
+        const taxNum = parseMoneyVal(r.taxes);
+        const gasNum = r.gasNum !== undefined ? r.gasNum : parseMoneyVal(r.gas);
+        const delivNum = Number(r.deliveries || 0);
+        const noTipNum = Number(r.noTipCount !== undefined ? r.noTipCount : parseMoneyVal(r.noTipping));
+        const tippedNum = Math.max(0, delivNum - noTipNum);
+        const pctTipped = delivNum > 0 ? ((tippedNum / delivNum) * 100).toFixed(1) : '0.0';
+        const tipsComb = parseMoneyVal(r.tips) + parseMoneyVal(r.cashTips);
+
+        vm = {
+            gross: r.totalPay,
+            net: fmtMoneyVal((r.totalPayNum || 0) - taxNum - gasNum),
+            hourly: r.hourlyRate,
+            actHrs: r.activeHours,
+            dashHrs: r.hours,
+            irs: fmtMoneyVal((r.milesNum || 0) * IRS_MILEAGE_RATE),
+            miles: r.miles,
+            deliv: delivNum.toLocaleString('en-US'),
+            tipped: `${tippedNum.toLocaleString('en-US')} (${pctTipped}%)`,
+            noTip: `${r.noTipping} (${r.pctNoTipping})`,
+            base: r.basePay,
+            tips: r.tips,
+            cash: r.cashTips,
+            tipsComb: fmtMoneyVal(tipsComb),
+            tax: r.taxes,
+            gas: r.gas
+        };
+
+        if (shifts.length > 0) badgesHtml += `<span class="badge-tag" style="background:rgba(56,189,248,0.14);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);">${shifts.length} shifts</span>`;
+        if ((r.totalPayNum || 0) > 0 && r.totalPayNum === maxPay) badgesHtml += `<span class="badge-tag badge-best-income">🏆 Top Pay</span>`;
+        if ((r.hourlyRateNum || 0) > 0 && r.hourlyRateNum === maxRate) badgesHtml += `<span class="badge-tag badge-best-rate">⚡ Peak Rate</span>`;
+        badgesHtml += `<span class="mcell-rate-pill">${escapeHtml(r.hourlyRate)}/hr</span>`;
+
+        logsHtml = `<div class="ms-logs-section">${buildDrilldownInnerHtml(r.month).html}</div>`;
+    }
+
+    if (badgesEl) badgesEl.innerHTML = badgesHtml;
+
+    bodyEl.innerHTML = `
+        <div class="ms-hero-grid">
+            <div class="ms-hero-card accent-emerald">
+                <span class="ms-hero-label">💰 Gross Earnings</span>
+                <span class="ms-hero-val emerald">${escapeHtml(vm.gross)}</span>
+                <span class="ms-hero-sub">Base ${escapeHtml(vm.base)} + Tips ${escapeHtml(vm.tipsComb)}</span>
+            </div>
+            <div class="ms-hero-card">
+                <span class="ms-hero-label">🏦 Net Take-Home</span>
+                <span class="ms-hero-val">${escapeHtml(vm.net)}</span>
+                <span class="ms-hero-sub">After ${escapeHtml(vm.tax)} tax &amp; ${escapeHtml(vm.gas)} gas</span>
+            </div>
+            <div class="ms-hero-card accent-cyan">
+                <span class="ms-hero-label">⚡ Hourly Rate</span>
+                <span class="ms-hero-val cyan">${escapeHtml(vm.hourly)} / hr</span>
+                <span class="ms-hero-sub">${escapeHtml(vm.actHrs)} active (${escapeHtml(vm.dashHrs)} dash)</span>
+            </div>
+            <div class="ms-hero-card accent-purple">
+                <span class="ms-hero-label">🛡️ IRS Mileage Write-Off</span>
+                <span class="ms-hero-val purple">${escapeHtml(vm.irs)}</span>
+                <span class="ms-hero-sub">${escapeHtml(vm.miles)} miles @ $0.67/mi</span>
+            </div>
+        </div>
+        <div class="ms-detail-grid">
+            <div class="ms-detail-card">
+                <div class="ms-detail-title">🛍️ Orders &amp; Tip Quality</div>
+                <div class="ms-kv-row"><span class="ms-kv-label">Total Deliveries</span><span class="ms-kv-val">${escapeHtml(vm.deliv)} orders</span></div>
+                <div class="ms-kv-row"><span class="ms-kv-label">Tipped Orders</span><span class="ms-kv-val positive-val">${escapeHtml(vm.tipped)}</span></div>
+                <div class="ms-kv-row"><span class="ms-kv-label">No-Tip Orders</span><span class="ms-kv-val">${escapeHtml(vm.noTip)}</span></div>
+            </div>
+            <div class="ms-detail-card">
+                <div class="ms-detail-title">💵 Pay Breakdown</div>
+                <div class="ms-kv-row"><span class="ms-kv-label">DoorDash Base Pay</span><span class="ms-kv-val">${escapeHtml(vm.base)}</span></div>
+                <div class="ms-kv-row"><span class="ms-kv-label">In-App Tips</span><span class="ms-kv-val positive-val">${escapeHtml(vm.tips)}</span></div>
+                <div class="ms-kv-row"><span class="ms-kv-label">Cash Tips</span><span class="ms-kv-val">${escapeHtml(vm.cash)}</span></div>
+            </div>
+            <div class="ms-detail-card">
+                <div class="ms-detail-title">⛽ Taxes &amp; Fuel Costs</div>
+                <div class="ms-kv-row"><span class="ms-kv-label">30% Tax Set-Aside</span><span class="ms-kv-val">${escapeHtml(vm.tax)}</span></div>
+                <div class="ms-kv-row"><span class="ms-kv-label">Gas Fill-Ups Total</span><span class="ms-kv-val gas-val">${escapeHtml(vm.gas)}</span></div>
+                <div class="ms-kv-row"><span class="ms-kv-label">Net Take-Home</span><span class="ms-kv-val positive-val">${escapeHtml(vm.net)}</span></div>
+            </div>
+        </div>
+        ${logsHtml}
+    `;
 }
 
 function renderMonthDrilldown() {
@@ -1386,9 +1587,11 @@ function renderTable(rows) {
 
     tbody.innerHTML = html;
     renderMonthlyCards(lastRenderedMonthlyRows);
+    renderMonthlySpotlight();
 }
 
 function renderTotalRow(row, totalMiles) {
+    lastRenderedTotalInfo = { row, totalMiles };
     const tfoot = document.getElementById('dashTableFoot');
     if (!tfoot || !row) return;
 
@@ -1441,6 +1644,7 @@ function renderTotalRow(row, totalMiles) {
             <td><span class="mcell-rate-pill">${row[10] || '$0'}/hr</span></td>
         </tr>
     `;
+    renderMonthlySpotlight();
 }
 
 /* ==========================================================================
