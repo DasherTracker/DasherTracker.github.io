@@ -1,5 +1,12 @@
 # Changelog
 
+## [6.1.0] - 2026-11-17
+### Added
+- Redesigned Monthly Breakdown into an 8-column zero-scroll table.
+- Stacked paired metrics so zero data is ever lost.
+- Compacted Shift Drilldown log to fit without horizontal scroll.
+- Added Compact Table and Month Cards view switcher.
+
 ## [6.0.2] - 2026-11-17
 ### Added
 - Added stationary Next and Back buttons for one-spot clicking.

@@ -1,5 +1,5 @@
 /* ==========================================================================
-   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v6.0.2)
+   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v6.1.0)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
@@ -1040,69 +1040,118 @@ function getVaultRecordsForMonth(monthName) {
     return { shifts, gas };
 }
 
+let currentMonthlyViewMode = 'table'; // 'table' | 'cards'
+let lastRenderedMonthlyRows = [];
+
+function parseMoneyVal(v) {
+    return parseFloat(String(v || '0').replace(/[^0-9.-]/g, '')) || 0;
+}
+
+function fmtMoneyVal(n) {
+    return `$${Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
+}
+
+function switchMonthlyViewMode(mode) {
+    currentMonthlyViewMode = (mode === 'cards') ? 'cards' : 'table';
+    const tblWrap = document.getElementById('monthlyTableViewWrap');
+    const cardsEl = document.getElementById('monthlyCardsGrid');
+    const btnTbl = document.getElementById('monthlyViewBtnTable');
+    const btnCards = document.getElementById('monthlyViewBtnCards');
+    if (btnTbl) btnTbl.classList.toggle('active', currentMonthlyViewMode === 'table');
+    if (btnCards) btnCards.classList.toggle('active', currentMonthlyViewMode === 'cards');
+    if (tblWrap) tblWrap.style.display = currentMonthlyViewMode === 'table' ? '' : 'none';
+    if (cardsEl) cardsEl.style.display = currentMonthlyViewMode === 'cards' ? 'grid' : 'none';
+    if (currentMonthlyViewMode === 'cards' && lastRenderedMonthlyRows.length > 0) {
+        renderMonthlyCards(lastRenderedMonthlyRows);
+    }
+}
+
+function renderMonthDrilldown() {
+    if (lastRenderedMonthlyRows.length > 0) renderTable(lastRenderedMonthlyRows);
+}
+
 function toggleMonthDrilldown(monthName) {
     const key = String(monthName || '').trim();
     expandedMonths[key] = !expandedMonths[key];
     const rowEl = document.querySelector(`tr.month-clickable-row[data-month="${key}"]`);
     const drawerEl = document.getElementById(`drilldown-${key}`);
     if (rowEl && drawerEl) {
-        if (expandedMonths[key]) {
-            rowEl.classList.add('expanded');
-            drawerEl.style.display = 'table-row';
-        } else {
-            rowEl.classList.remove('expanded');
-            drawerEl.style.display = 'none';
-        }
+        rowEl.classList.toggle('expanded', !!expandedMonths[key]);
+        drawerEl.style.display = expandedMonths[key] ? 'table-row' : 'none';
     }
+    const cardDrawer = document.getElementById(`card-drilldown-${key}`);
+    const cardBtn = document.getElementById(`card-expand-btn-${key}`);
+    if (cardDrawer) cardDrawer.style.display = expandedMonths[key] ? 'block' : 'none';
+    if (cardBtn) cardBtn.textContent = expandedMonths[key] ? '▲ Hide Shift & Gas Logs' : '▼ Inspect Shift & Gas Logs';
 }
 
-function buildDrilldownDrawerHtml(monthName) {
+function buildDrilldownInnerHtml(monthName) {
     const { shifts, gas } = getVaultRecordsForMonth(monthName);
 
     let shiftsHtml = '';
     if (shifts.length === 0) {
-        shiftsHtml = `<div style="padding:0.75rem; color:#64748b; font-size:0.8rem;">No individual shifts logged in Vault for ${escapeHtml(monthName)} yet. Use <strong>+ Log Shift / Add Data</strong> to add one!</div>`;
+        shiftsHtml = `<div style="padding:0.75rem; color:#64748b; font-size:0.8rem;">No individual shifts logged in Vault for ${escapeHtml(monthName)} yet. Use <strong>＋ End-of-Shift Log</strong> to add one!</div>`;
     } else {
         shiftsHtml = `
             <div class="drilldown-mini-table-wrap">
                 <table class="drilldown-mini-table">
                     <thead>
                         <tr>
-                            <th>Start</th>
-                            <th>End</th>
-                            <th>Hrs</th>
-                            <th>Active</th>
-                            <th>Miles</th>
-                            <th>Deliv</th>
-                            <th>Base</th>
-                            <th>Tips</th>
-                            <th>Misc / Bonus</th>
-                            <th>Total</th>
-                            <th>Rate</th>
-                            <th>Misc Reason / Notes</th>
+                            <th>Date &amp; Time</th>
+                            <th>Hours</th>
+                            <th>Miles &amp; Orders</th>
+                            <th>Base &amp; Tips</th>
+                            <th>Reimb. &amp; Notes</th>
+                            <th>Total &amp; Rate</th>
                             <th>Action</th>
                         </tr>
                     </thead>
                     <tbody>
                         ${shifts.map(s => {
+                            const miscAmt = Number(s.miscAmount || 0);
                             const miscBadge = s.miscCategory ? `<span class="misc-pill-badge">${escapeHtml(s.miscCategory)}</span>` : '';
-                            const noteText = s.miscNote ? escapeHtml(s.miscNote) : (s.miscAmount > 0 ? 'Bonus / Extra Pay' : '—');
+                            const noteText = s.miscNote ? escapeHtml(s.miscNote) : (miscAmt > 0 ? 'Bonus / Extra Pay' : '—');
                             const sId = escapeHtml(s.id || '');
                             const sStart = escapeHtml(s.start || '');
+                            const cashTxt = Number(s.cashTips || 0) > 0 ? ` + $${Number(s.cashTips).toFixed(2)} cash` : '';
                             return `
                                 <tr>
-                                    <td>${escapeHtml(s.start)}</td>
-                                    <td>${escapeHtml(s.end)}</td>
-                                    <td>${escapeHtml(s.hours)}</td>
-                                    <td>${escapeHtml(s.activeHours)}</td>
-                                    <td>${Number(s.miles || 0).toFixed(1)}</td>
-                                    <td>${s.deliveries}</td>
-                                    <td>$${Number(s.basePay || 0).toFixed(2)}</td>
-                                    <td class="positive-val">$${Number((s.tips || 0) + (s.cashTips || 0)).toFixed(2)}</td>
-                                    <td style="color:#fbbf24;">$${Number(s.miscAmount || 0).toFixed(2)}</td>
-                                    <td class="positive-val"><strong>$${Number(s.total || 0).toFixed(2)}</strong></td>
-                                    <td>$${Number(s.hourlyRate || 0).toFixed(2)}/hr</td>
-                                    <td>${miscBadge}${noteText}</td>
+                                    <td>
+                                        <div class="mcell-stack">
+                                            <span class="mcell-primary">${escapeHtml(s.start)}</span>
+                                            <span class="mcell-sub">→ ${escapeHtml(s.end)}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="mcell-stack">
+                                            <span class="mcell-primary">${escapeHtml(s.activeHours)} act</span>
+                                            <span class="mcell-sub">${escapeHtml(s.hours)} dash</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="mcell-stack">
+                                            <span class="mcell-primary">${Number(s.miles || 0).toFixed(1)} mi</span>
+                                            <span class="mcell-sub">${s.deliveries} ord • ${Number(s.noTips || 0)} no-tip</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="mcell-stack">
+                                            <span class="mcell-primary">Base $${Number(s.basePay || 0).toFixed(2)}</span>
+                                            <span class="mcell-sub positive-val">Tips $${Number(s.tips || 0).toFixed(2)}${cashTxt}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="mcell-stack">
+                                            <span>${miscAmt > 0 ? `<strong style="color:#fbbf24;">+$${miscAmt.toFixed(2)}</strong> ` : ''}${miscBadge}</span>
+                                            <span class="mcell-sub">${noteText}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <div class="mcell-stack">
+                                            <span class="mcell-primary positive-val">$${Number(s.total || 0).toFixed(2)}</span>
+                                            <span class="mcell-sub" style="color:#38bdf8;">$${Number(s.hourlyRate || 0).toFixed(2)}/hr • Tax $${Number(s.taxes || 0).toFixed(2)}</span>
+                                        </div>
+                                    </td>
                                     <td>
                                         <button type="button" class="btn-shift-edit btn-shift-edit-sm" onclick="openEditShiftModal('${sId}', '${sStart}')" title="Edit Shift & Reimbursements">✏️ Edit</button>
                                     </td>
@@ -1125,9 +1174,8 @@ function buildDrilldownDrawerHtml(monthName) {
                     <thead>
                         <tr>
                             <th>Date</th>
-                            <th>Station (Where)</th>
-                            <th>Price/Gal</th>
-                            <th>Gallons</th>
+                            <th>Station</th>
+                            <th>$/Gal &amp; Gal</th>
                             <th>Total $</th>
                         </tr>
                     </thead>
@@ -1136,8 +1184,7 @@ function buildDrilldownDrawerHtml(monthName) {
                             <tr>
                                 <td>${escapeHtml(g.date)}</td>
                                 <td><strong>${escapeHtml(g.station)}</strong></td>
-                                <td>$${Number(g.price || 0).toFixed(2)}</td>
-                                <td>${Number(g.gallons || 0).toFixed(3)}</td>
+                                <td>$${Number(g.price || 0).toFixed(2)} • ${Number(g.gallons || 0).toFixed(3)} gal</td>
                                 <td class="gas-val"><strong>$${Number(g.total || 0).toFixed(2)}</strong></td>
                             </tr>
                         `).join('')}
@@ -1147,42 +1194,136 @@ function buildDrilldownDrawerHtml(monthName) {
         `;
     }
 
+    return { shiftsCount: shifts.length, gasCount: gas.length, html: `
+        <div class="drilldown-drawer-grid">
+            <div class="drilldown-subcard">
+                <div class="drilldown-subcard-header">
+                    <h4>🚗 ${escapeHtml(monthName)} Shift Vault Log</h4>
+                    <span class="drilldown-count-pill">${shifts.length} Shifts</span>
+                </div>
+                ${shiftsHtml}
+            </div>
+            <div class="drilldown-subcard">
+                <div class="drilldown-subcard-header">
+                    <h4>⛽ ${escapeHtml(monthName)} Gas Fill-Ups</h4>
+                    <span class="drilldown-count-pill">${gas.length} Fill-Ups</span>
+                </div>
+                ${gasHtml}
+            </div>
+        </div>
+    ` };
+}
+
+function buildDrilldownDrawerHtml(monthName) {
+    const inner = buildDrilldownInnerHtml(monthName);
     return `
         <tr id="drilldown-${escapeHtml(monthName)}" class="month-drilldown-row" style="display: ${expandedMonths[monthName] ? 'table-row' : 'none'};">
-            <td colspan="15" class="month-drilldown-cell">
-                <div class="drilldown-drawer-grid">
-                    <div class="drilldown-subcard">
-                        <div class="drilldown-subcard-header">
-                            <h4>🚗 ${escapeHtml(monthName)} Shift Vault Log</h4>
-                            <span class="drilldown-count-pill">${shifts.length} Shifts</span>
-                        </div>
-                        ${shiftsHtml}
-                    </div>
-                    <div class="drilldown-subcard">
-                        <div class="drilldown-subcard-header">
-                            <h4>⛽ ${escapeHtml(monthName)} Gas Fill-Ups</h4>
-                            <span class="drilldown-count-pill">${gas.length} Fill-Ups</span>
-                        </div>
-                        ${gasHtml}
-                    </div>
-                </div>
+            <td colspan="8" class="month-drilldown-cell">
+                ${inner.html}
             </td>
         </tr>
     `;
 }
 
-function renderTable(rows) {
-    const tbody = document.getElementById('dashTableBody');
-    if (!tbody) return;
-    let html = '';
-    
+function renderMonthlyCards(rows) {
+    const grid = document.getElementById('monthlyCardsGrid');
+    if (!grid) return;
+
     let maxPay = 0;
     let maxRate = 0;
     rows.forEach(r => {
         if (r.totalPayNum > maxPay) maxPay = r.totalPayNum;
         if (r.hourlyRateNum > maxRate) maxRate = r.hourlyRateNum;
     });
-    
+
+    grid.innerHTML = rows.map(r => {
+        const irsVal = fmtMoneyVal((r.milesNum || 0) * IRS_MILEAGE_RATE);
+        const taxNum = parseMoneyVal(r.taxes);
+        const gasNum = r.gasNum !== undefined ? r.gasNum : parseMoneyVal(r.gas);
+        const netVal = fmtMoneyVal((r.totalPayNum || 0) - taxNum - gasNum);
+        const { shifts } = getVaultRecordsForMonth(r.month);
+        const isExp = !!expandedMonths[r.month];
+        const inner = buildDrilldownInnerHtml(r.month);
+
+        let badges = '';
+        if (shifts.length > 0) badges += `<span class="badge-tag" style="background:rgba(56,189,248,0.14);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);">${shifts.length} shifts</span>`;
+        if (r.totalPayNum > 0 && r.totalPayNum === maxPay) badges += `<span class="badge-tag badge-best-income">🏆 Top Pay</span>`;
+        if (r.hourlyRateNum > 0 && r.hourlyRateNum === maxRate) badges += `<span class="badge-tag badge-best-rate">⚡ Peak Rate</span>`;
+
+        return `
+            <article class="month-bento-card" data-month="${escapeHtml(r.month)}">
+                <div class="mbc-header">
+                    <div class="mbc-title-row">
+                        <div class="mbc-title">${escapeHtml(r.month)}</div>
+                        <div style="display:flex;gap:0.25rem;flex-wrap:wrap;">${badges}</div>
+                    </div>
+                    <span class="mcell-rate-pill">${escapeHtml(r.hourlyRate)}/hr</span>
+                </div>
+                <div class="mbc-hero">
+                    <span class="mbc-hero-gross">${escapeHtml(r.totalPay)}</span>
+                    <span class="mbc-hero-net">Net ${netVal}</span>
+                </div>
+                <div class="mbc-grid">
+                    <div class="mbc-stat">
+                        <div class="mbc-stat-label">Hours</div>
+                        <div class="mcell-stack">
+                            <span class="mcell-primary">${escapeHtml(r.activeHours)} act</span>
+                            <span class="mcell-sub">${escapeHtml(r.hours)} dash</span>
+                        </div>
+                    </div>
+                    <div class="mbc-stat">
+                        <div class="mbc-stat-label">Miles &amp; IRS</div>
+                        <div class="mcell-stack">
+                            <span class="mcell-primary">${escapeHtml(r.miles)} mi</span>
+                            <span class="mcell-sub deduction-val">${irsVal} IRS</span>
+                        </div>
+                    </div>
+                    <div class="mbc-stat">
+                        <div class="mbc-stat-label">Orders &amp; No-Tip</div>
+                        <div class="mcell-stack">
+                            <span class="mcell-primary">${Number(r.deliveries || 0).toLocaleString('en-US')} ord</span>
+                            <span class="mcell-sub">${escapeHtml(r.noTipping)} no-tip (${escapeHtml(r.pctNoTipping)})</span>
+                        </div>
+                    </div>
+                    <div class="mbc-stat">
+                        <div class="mbc-stat-label">Pay Split</div>
+                        <div class="mcell-stack">
+                            <span class="mcell-primary">Base ${escapeHtml(r.basePay)}</span>
+                            <span class="mcell-sub positive-val">Tips ${escapeHtml(r.tips)} • Cash ${escapeHtml(r.cashTips)}</span>
+                        </div>
+                    </div>
+                    <div class="mbc-stat" style="grid-column: 1 / -1;">
+                        <div class="mbc-stat-label">Taxes &amp; Gas</div>
+                        <div style="display:flex;justify-content:space-between;gap:0.5rem;">
+                            <span class="mcell-sub">Tax ${escapeHtml(r.taxes)}</span>
+                            <span class="mcell-sub gas-val">Gas ${escapeHtml(r.gas)}</span>
+                        </div>
+                    </div>
+                </div>
+                <button type="button" class="mbc-expand-btn" id="card-expand-btn-${escapeHtml(r.month)}" onclick="toggleMonthDrilldown('${escapeHtml(r.month)}')">
+                    ${isExp ? '▲ Hide Shift & Gas Logs' : '▼ Inspect Shift & Gas Logs'} (${inner.shiftsCount} / ${inner.gasCount})
+                </button>
+                <div id="card-drilldown-${escapeHtml(r.month)}" style="display:${isExp ? 'block' : 'none'};">
+                    ${inner.html}
+                </div>
+            </article>
+        `;
+    }).join('');
+}
+
+function renderTable(rows) {
+    lastRenderedMonthlyRows = Array.isArray(rows) ? rows : [];
+    const tbody = document.getElementById('dashTableBody');
+    if (!tbody) return;
+    let html = '';
+
+    let maxPay = 0;
+    let maxRate = 0;
+    rows.forEach(r => {
+        if (r.totalPayNum > maxPay) maxPay = r.totalPayNum;
+        if (r.hourlyRateNum > maxRate) maxRate = r.hourlyRateNum;
+    });
+
     rows.forEach(r => {
         let monthBadge = '';
         if (r.totalPayNum > 0 && r.totalPayNum === maxPay) {
@@ -1196,55 +1337,120 @@ function renderTable(rows) {
         const { shifts } = getVaultRecordsForMonth(r.month);
         const shiftCountTag = shifts.length > 0 ? `<span class="badge-tag" style="background:rgba(56,189,248,0.14);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);">${shifts.length} shifts</span>` : '';
 
+        const irsVal = fmtMoneyVal((r.milesNum || 0) * IRS_MILEAGE_RATE);
+        const taxNum = parseMoneyVal(r.taxes);
+        const gasNum = r.gasNum !== undefined ? r.gasNum : parseMoneyVal(r.gas);
+        const netVal = fmtMoneyVal((r.totalPayNum || 0) - taxNum - gasNum);
+
         html += `
             <tr class="month-clickable-row ${isExp ? 'expanded' : ''}" data-month="${escapeHtml(r.month)}" onclick="toggleMonthDrilldown('${escapeHtml(r.month)}')">
-                <td><span class="month-expand-chevron">▶</span><strong>${r.month}</strong>${shiftCountTag}${monthBadge}</td>
-                <td>${r.hours}</td>
-                <td>${r.activeHours}</td>
-                <td>${r.miles}</td>
-                <td><strong class="deduction-val">$${(r.milesNum * IRS_MILEAGE_RATE).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
-                <td>${r.deliveries.toLocaleString('en-US')}</td>
-                <td>${r.basePay}</td>
-                <td class="positive-val">${r.tips}</td>
-                <td>${r.cashTips}</td>
-                <td>${r.taxes}</td>
-                <td class="gas-val">${r.gas}</td>
-                <td class="positive-val"><strong>${r.totalPay}</strong></td>
-                <td>${r.hourlyRate}</td>
-                <td>${r.noTipping}</td>
-                <td>${r.pctNoTipping}</td>
+                <td>
+                    <div class="mcell-month-wrap">
+                        <div class="mcell-month-top">
+                            <span class="month-expand-chevron">▶</span>
+                            <strong>${r.month}</strong>
+                            ${shiftCountTag}
+                        </div>
+                        ${monthBadge ? `<div class="mcell-badges">${monthBadge}</div>` : ''}
+                    </div>
+                </td>
+                <td>
+                    <div class="mcell-stack">
+                        <span class="mcell-primary">${r.activeHours} act</span>
+                        <span class="mcell-sub">${r.hours} dash</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="mcell-stack">
+                        <span class="mcell-primary">${r.miles} mi</span>
+                        <span class="mcell-sub deduction-val">${irsVal} IRS</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="mcell-stack">
+                        <span class="mcell-primary">${Number(r.deliveries || 0).toLocaleString('en-US')} ord</span>
+                        <span class="mcell-sub">${r.noTipping} no-tip (${r.pctNoTipping})</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="mcell-stack">
+                        <span class="mcell-primary">Base ${r.basePay}</span>
+                        <span class="mcell-sub positive-val">Tips ${r.tips} • Cash ${r.cashTips}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="mcell-stack">
+                        <span class="mcell-primary">Tax ${r.taxes}</span>
+                        <span class="mcell-sub gas-val">Gas ${r.gas}</span>
+                    </div>
+                </td>
+                <td>
+                    <div class="mcell-stack">
+                        <span class="mcell-primary positive-val">${r.totalPay}</span>
+                        <span class="mcell-sub">Net ${netVal}</span>
+                    </div>
+                </td>
+                <td><span class="mcell-rate-pill">${r.hourlyRate}/hr</span></td>
             </tr>
             ${buildDrilldownDrawerHtml(r.month)}
         `;
     });
-    
+
     tbody.innerHTML = html;
+    renderMonthlyCards(lastRenderedMonthlyRows);
 }
 
 function renderTotalRow(row, totalMiles) {
     const tfoot = document.getElementById('dashTableFoot');
     if (!tfoot || !row) return;
-    
-    const milesTotal = totalMiles || parseFloat((row[3] || '0').replace(/[^0-9.]/g, '')) || 8986;
-    const totalDeductionVal = milesTotal * IRS_MILEAGE_RATE;
+
+    const milesTotal = totalMiles || parseMoneyVal(row[3]) || 8986;
+    const totalDeductionVal = fmtMoneyVal(milesTotal * IRS_MILEAGE_RATE);
+    const grossNum = parseMoneyVal(row[9]);
+    const taxNum = parseMoneyVal(row[8]);
+    const gasNum = parseMoneyVal(row[13]);
+    const netTotalVal = fmtMoneyVal(grossNum - taxNum - gasNum);
 
     tfoot.innerHTML = `
         <tr>
             <td><strong>${row[0] || 'Total'}</strong></td>
-            <td>${row[1] || '0'}</td>
-            <td>${row[2] || '0'}</td>
-            <td>${row[3] || '0'}</td>
-            <td><strong class="deduction-val">$${totalDeductionVal.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</strong></td>
-            <td>${row[4] || '0'}</td>
-            <td>${row[5] || '$0'}</td>
-            <td class="positive-val">${row[6] || '$0'}</td>
-            <td>${row[7] || '$0'}</td>
-            <td>${row[8] || '$0'}</td>
-            <td class="gas-val">${row[13] || '$0.00'}</td>
-            <td class="positive-val"><strong>${row[9] || '$0'}</strong></td>
-            <td>${row[10] || '$0'}</td>
-            <td>${row[11] || '0'}</td>
-            <td>${row[12] || '0%'}</td>
+            <td>
+                <div class="mcell-stack">
+                    <span class="mcell-primary">${row[2] || '0'} act</span>
+                    <span class="mcell-sub">${row[1] || '0'} dash</span>
+                </div>
+            </td>
+            <td>
+                <div class="mcell-stack">
+                    <span class="mcell-primary">${row[3] || '0'} mi</span>
+                    <span class="mcell-sub deduction-val">${totalDeductionVal} IRS</span>
+                </div>
+            </td>
+            <td>
+                <div class="mcell-stack">
+                    <span class="mcell-primary">${row[4] || '0'} ord</span>
+                    <span class="mcell-sub">${row[11] || '0'} no-tip (${row[12] || '0%'})</span>
+                </div>
+            </td>
+            <td>
+                <div class="mcell-stack">
+                    <span class="mcell-primary">Base ${row[5] || '$0'}</span>
+                    <span class="mcell-sub positive-val">Tips ${row[6] || '$0'} • Cash ${row[7] || '$0'}</span>
+                </div>
+            </td>
+            <td>
+                <div class="mcell-stack">
+                    <span class="mcell-primary">Tax ${row[8] || '$0'}</span>
+                    <span class="mcell-sub gas-val">Gas ${row[13] || '$0.00'}</span>
+                </div>
+            </td>
+            <td>
+                <div class="mcell-stack">
+                    <span class="mcell-primary positive-val">${row[9] || '$0'}</span>
+                    <span class="mcell-sub">Net ${netTotalVal}</span>
+                </div>
+            </td>
+            <td><span class="mcell-rate-pill">${row[10] || '$0'}/hr</span></td>
         </tr>
     `;
 }

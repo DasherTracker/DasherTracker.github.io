@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=6.0.2">
+    <link rel="stylesheet" href="styles.css?v=6.1.0">
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Chart.js for data visualization -->
@@ -239,26 +239,23 @@
                         <span class="panel-pill-badge" id="tableMonthCountBadge">All Logged Months</span>
                         <span class="drilldown-hint-badge">💡 Click any month row to inspect Shift &amp; Gas logs</span>
                     </div>
+                    <div class="monthly-view-switcher" role="tablist" aria-label="Monthly Breakdown View Mode">
+                        <button type="button" class="monthly-view-btn active" id="monthlyViewBtnTable" onclick="switchMonthlyViewMode('table')">📊 Compact Table</button>
+                        <button type="button" class="monthly-view-btn" id="monthlyViewBtnCards" onclick="switchMonthlyViewMode('cards')">🗂️ Month Cards</button>
+                    </div>
                 </div>
-                <div class="table-responsive">
+                <div id="monthlyTableViewWrap" class="table-responsive">
                     <table id="dashTable">
                         <thead>
                             <tr>
                                 <th>Month</th>
-                                <th>Dash Hours</th>
-                                <th>Active Hours</th>
-                                <th>Miles</th>
-                                <th>IRS Deduction ($0.67)</th>
-                                <th>Deliveries</th>
-                                <th>Base Pay</th>
-                                <th>Tips</th>
-                                <th>Cash Tips</th>
-                                <th>Taxes</th>
-                                <th>Gas</th>
-                                <th>Gross Total</th>
+                                <th>Hours (Active / Dash)</th>
+                                <th>Miles &amp; IRS ($0.67)</th>
+                                <th>Orders &amp; No-Tip</th>
+                                <th>Pay Breakdown</th>
+                                <th>Taxes &amp; Gas</th>
+                                <th>Gross &amp; Net</th>
                                 <th>Hourly Rate</th>
-                                <th># No Tip</th>
-                                <th>% No Tip</th>
                             </tr>
                         </thead>
                         <tbody id="dashTableBody">
@@ -269,6 +266,7 @@
                         </tfoot>
                     </table>
                 </div>
+                <div id="monthlyCardsGrid" class="monthly-cards-grid" style="display: none;"></div>
             </section>
         </div>
 
@@ -570,7 +568,7 @@
 
         <!-- FOOTER -->
         <footer class="dashboard-footer">
-            <p>Dasher Tracker HQ <span class="version-badge">v6.0.2</span> • Multi-Year Delivery Vault &amp; Tax Intelligence</p>
+            <p>Dasher Tracker HQ <span class="version-badge">v6.1.0</span> • Multi-Year Delivery Vault &amp; Tax Intelligence</p>
         </footer>
     </main>
 
@@ -1036,6 +1034,6 @@
     <!-- TOAST NOTIFICATION CONTAINER -->
     <div id="hqToastContainer" class="hq-toast-container"></div>
 
-    <script src="script.js?v=6.0.2"></script>
+    <script src="script.js?v=6.1.0"></script>
 </body>
 </html>
