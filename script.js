@@ -1,5 +1,5 @@
 /* ==========================================================================
-   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v6.0.0)
+   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v6.0.1)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
@@ -2148,6 +2148,7 @@ function resetExpenseFormClean() {
 }
 
 let currentEosMode = 'shift'; // 'shift' | 'gas' | 'edit'
+let activeRailSec = 'time';
 let isRestoringEosDraft = false;
 const EOS_DRAFT_KEY = 'dasher_eos_draft_v6';
 
@@ -2163,10 +2164,6 @@ function setEosMode(mode) {
     const draftBtn = document.getElementById('saveDraftBtn');
     const clearBtn = document.getElementById('clearShiftFormBtn');
     const badgeEl = document.getElementById('eosModeBadge');
-    const shiftWrap = document.getElementById('hqFormShift');
-    const secGas = document.getElementById('eosSecGas');
-    const secExp = document.getElementById('eosSecExpense');
-    const secRat = document.getElementById('eosSecRatings');
 
     const toggleRailStep = (sec, visible) => {
         const btn = document.querySelector(`.eos-rail-step[data-target="${sec}"]`);
@@ -2174,14 +2171,8 @@ function setEosMode(mode) {
     };
 
     if (currentEosMode === 'gas') {
-        if (shiftWrap) shiftWrap.style.display = 'none';
-        if (secGas) secGas.style.display = '';
-        if (secExp) secExp.style.display = 'none';
-        if (secRat) secRat.style.display = 'none';
-        ['time', 'earn', 'misc'].forEach(s => toggleRailStep(s, false));
+        ['time', 'earn', 'misc', 'expense', 'ratings', 'all'].forEach(s => toggleRailStep(s, false));
         toggleRailStep('gas', true);
-        toggleRailStep('expense', false);
-        toggleRailStep('ratings', false);
         if (titleEl) titleEl.textContent = 'Log Gas Fill-Up(s)';
         if (subEl) subEl.textContent = 'Quick gas entry for non-shift days';
         if (iconEl) iconEl.textContent = '⛽';
@@ -2190,13 +2181,9 @@ function setEosMode(mode) {
         if (clearBtn) clearBtn.style.display = '';
         if (badgeEl) badgeEl.textContent = '🔓 Gas Quick Log';
         onEosToggleSection('gas', true);
-        eosSetActiveRail('gas');
+        eosJumpTo('gas');
     } else if (currentEosMode === 'edit') {
-        if (shiftWrap) shiftWrap.style.display = 'flex';
-        if (secGas) secGas.style.display = 'none';
-        if (secExp) secExp.style.display = 'none';
-        if (secRat) secRat.style.display = 'none';
-        ['time', 'earn', 'misc'].forEach(s => toggleRailStep(s, true));
+        ['time', 'earn', 'misc', 'all'].forEach(s => toggleRailStep(s, true));
         ['gas', 'expense', 'ratings'].forEach(s => toggleRailStep(s, false));
         if (titleEl) titleEl.textContent = 'Edit Shift & Reimbursements';
         if (subEl) subEl.textContent = 'Update shift details, reimbursements, and sync to Vault';
@@ -2204,13 +2191,9 @@ function setEosMode(mode) {
         if (submitBtn) submitBtn.textContent = '💾 Save Shift Changes';
         if (draftBtn) draftBtn.style.display = 'none';
         if (clearBtn) clearBtn.style.display = 'none';
-        eosSetActiveRail('time');
+        eosJumpTo('time');
     } else {
-        if (shiftWrap) shiftWrap.style.display = 'flex';
-        if (secGas) secGas.style.display = '';
-        if (secExp) secExp.style.display = '';
-        if (secRat) secRat.style.display = '';
-        ['time', 'earn', 'misc', 'gas', 'expense', 'ratings'].forEach(s => toggleRailStep(s, true));
+        ['time', 'earn', 'misc', 'gas', 'expense', 'ratings', 'all'].forEach(s => toggleRailStep(s, true));
         if (titleEl) titleEl.textContent = 'End-of-Shift Log';
         if (subEl) subEl.textContent = 'Fill in what you have — everything saves together in one tap';
         if (iconEl) iconEl.textContent = '⚡';
@@ -2218,7 +2201,7 @@ function setEosMode(mode) {
         if (draftBtn) draftBtn.style.display = '';
         if (clearBtn) clearBtn.style.display = '';
         if (badgeEl) badgeEl.textContent = '🔓 Admin Verified';
-        eosSetActiveRail('time');
+        eosJumpTo('time');
     }
 }
 
@@ -2242,23 +2225,62 @@ function toggleEosCard(sec) {
     const el = document.getElementById(eosSectionId(sec));
     if (!el) return;
     el.classList.toggle('collapsed');
-    eosSetActiveRail(sec);
+    if (activeRailSec !== 'all') eosSetActiveRail(sec);
 }
 
 function eosJumpTo(sec) {
-    setEosCardCollapsed(sec, false);
+    const allSecs = ['time', 'earn', 'misc', 'gas', 'expense', 'ratings'];
+    const allowed = currentEosMode === 'gas'
+        ? ['gas']
+        : (currentEosMode === 'edit' ? ['time', 'earn', 'misc'] : allSecs);
+
+    activeRailSec = sec;
     eosSetActiveRail(sec);
-    const el = document.getElementById(eosSectionId(sec));
-    if (el && typeof el.scrollIntoView === 'function') {
-        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+
+    const shiftWrap = document.getElementById('hqFormShift');
+    if (shiftWrap) {
+        const showShiftWrap = (currentEosMode !== 'gas') && (sec === 'all' || sec === 'time' || sec === 'earn' || sec === 'misc');
+        shiftWrap.style.display = showShiftWrap ? 'flex' : 'none';
     }
+
+    if (sec === 'all') {
+        allSecs.forEach(s => {
+            const el = document.getElementById(eosSectionId(s));
+            if (el) el.style.display = allowed.includes(s) ? '' : 'none';
+            if (allowed.includes(s) && (s === 'time' || s === 'earn' || s === 'misc')) {
+                setEosCardCollapsed(s, false);
+            }
+        });
+    } else {
+        allSecs.forEach(s => {
+            const el = document.getElementById(eosSectionId(s));
+            if (el) el.style.display = (s === sec && allowed.includes(s)) ? '' : 'none';
+        });
+        setEosCardCollapsed(sec, false);
+        if (sec === 'gas' || sec === 'expense' || sec === 'ratings') {
+            const defDate = getShiftFormDefaultIsoDate();
+            if (sec === 'gas') {
+                document.querySelectorAll('#gasRowsContainer .gas-date-input').forEach(el => { if (!el.value) el.value = defDate; });
+            } else if (sec === 'expense') {
+                document.querySelectorAll('#expenseRowsContainer .exp-date-input').forEach(el => { if (!el.value) el.value = defDate; });
+            }
+        }
+    }
+
+    const body = document.getElementById('eosBody');
+    if (body) body.scrollTop = 0;
 }
 
 function onEosToggleSection(sec, checked) {
     const toggleId = sec === 'gas' ? 'eosToggleGas' : (sec === 'expense' ? 'eosToggleExpense' : 'eosToggleRatings');
     const cb = document.getElementById(toggleId);
     if (cb) cb.checked = !!checked;
-    setEosCardCollapsed(sec, !checked);
+    // Keep the currently viewed tab expanded even if toggled off
+    if (activeRailSec === sec) {
+        setEosCardCollapsed(sec, false);
+    } else {
+        setEosCardCollapsed(sec, !checked);
+    }
     if (checked) {
         const defDate = getShiftFormDefaultIsoDate();
         if (sec === 'gas') {
@@ -2266,7 +2288,6 @@ function onEosToggleSection(sec, checked) {
         } else if (sec === 'expense') {
             document.querySelectorAll('#expenseRowsContainer .exp-date-input').forEach(el => { if (!el.value) el.value = defDate; });
         }
-        eosSetActiveRail(sec);
     }
     recalcShiftPreview();
     if (!isRestoringEosDraft && currentEosMode === 'shift') {
@@ -2316,6 +2337,8 @@ async function openAddDataModal(defaultTab = 'shift') {
         } else if (defaultTab === 'ratings') {
             onEosToggleSection('ratings', true);
             eosJumpTo('ratings');
+        } else {
+            eosJumpTo('time');
         }
     }
     recalcShiftPreview();
@@ -2363,7 +2386,7 @@ function addMiscPayRow(initialType = '', initialAmount = 0, initialNote = '', in
         <div class="hq-field-group">
             <label>Misc Type Dropdown</label>
             <select class="hq-select misc-type-select" onchange="recalcShiftPreview()">
-                <option value="">None — $0.00 Extra Pay</option>
+                <option value="">None ($0.00)</option>
                 <option value="💵 Reimbursement" ${selReimb}>💵 Reimbursement (Closed Store / Half-Pay)</option>
                 <option value="⚡ Peak Pay / Bonus" ${selPeak}>⚡ Peak Pay / Challenge Bonus</option>
                 <option value="📦 Extra Delivery Fee" ${selExtra}>📦 Extra Delivery Fee</option>
@@ -2814,6 +2837,10 @@ function recalcGasPreview(changedField) {
     if (countEl) countEl.textContent = `${displayCount} Fill-Up${displayCount === 1 ? '' : 's'}`;
     if (galsEl) galsEl.textContent = `${totalGallons.toFixed(3)} gal`;
     if (costEl) costEl.textContent = `$${totalCost.toFixed(2)}`;
+    if (!isRestoringEosDraft && (totalCost > 0 || totalGallons > 0)) {
+        const gCb = document.getElementById('eosToggleGas');
+        if (gCb && !gCb.checked) gCb.checked = true;
+    }
     updateEosChipsAndFooter();
     if (!isRestoringEosDraft && currentEosMode === 'shift') {
         const ov = document.getElementById('addDataModalOverlay');
@@ -2876,9 +2903,12 @@ function recalcExpensePreview() {
     let gearSub = 0;
     let maintSub = 0;
 
+    let hasNamedItem = false;
     rows.forEach(r => {
         const cat = ((r.querySelector('.exp-category-input') || {}).value || 'Gear').trim();
         const cost = parseFloat((r.querySelector('.exp-cost-input') || {}).value) || 0;
+        const nm = ((r.querySelector('.exp-name-input') || {}).value || '').trim();
+        if (nm) hasNamedItem = true;
         if (cat.toLowerCase().includes('maint')) {
             maintSub += cost;
         } else {
@@ -2896,6 +2926,10 @@ function recalcExpensePreview() {
     if (gearEl) gearEl.textContent = `$${gearSub.toFixed(2)}`;
     if (maintEl) maintEl.textContent = `$${maintSub.toFixed(2)}`;
     if (combEl) combEl.textContent = `$${combined.toFixed(2)} (${count} Item${count === 1 ? '' : 's'})`;
+    if (!isRestoringEosDraft && (hasNamedItem || combined > 0)) {
+        const eCb = document.getElementById('eosToggleExpense');
+        if (eCb && !eCb.checked) eCb.checked = true;
+    }
     updateEosChipsAndFooter();
     if (!isRestoringEosDraft && currentEosMode === 'shift') {
         const ov = document.getElementById('addDataModalOverlay');
@@ -3527,7 +3561,7 @@ function openEditShiftModal(shiftId, startStr) {
     const badge = document.getElementById('eosModeBadge');
     if (badge) badge.textContent = shift.id ? `ID: ${shift.id}` : `Date: ${shift.start || ''}`;
 
-    ['time', 'earn', 'misc'].forEach(s => setEosCardCollapsed(s, false));
+    eosJumpTo('time');
     recalcShiftPreview();
 
     const overlay = document.getElementById('addDataModalOverlay');

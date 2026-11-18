@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=6.0.0">
+    <link rel="stylesheet" href="styles.css?v=6.0.1">
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Chart.js for data visualization -->
@@ -570,7 +570,7 @@
 
         <!-- FOOTER -->
         <footer class="dashboard-footer">
-            <p>Dasher Tracker HQ <span class="version-badge">v6.0.0</span> • Multi-Year Delivery Vault &amp; Tax Intelligence</p>
+            <p>Dasher Tracker HQ <span class="version-badge">v6.0.1</span> • Multi-Year Delivery Vault &amp; Tax Intelligence</p>
         </footer>
     </main>
 
@@ -642,6 +642,7 @@
                     <button type="button" class="eos-rail-step" data-target="gas" onclick="eosJumpTo('gas')"><span class="eos-step-dot">4</span><span>Gas</span></button>
                     <button type="button" class="eos-rail-step" data-target="expense" onclick="eosJumpTo('expense')"><span class="eos-step-dot">5</span><span>Expenses</span></button>
                     <button type="button" class="eos-rail-step" data-target="ratings" onclick="eosJumpTo('ratings')"><span class="eos-step-dot">6</span><span>Ratings</span></button>
+                    <button type="button" class="eos-rail-step" data-target="all" onclick="eosJumpTo('all')"><span class="eos-step-dot">📋</span><span>All Sections</span></button>
                 </nav>
 
             <div class="hq-modal-body eos-body" id="eosBody">
@@ -734,7 +735,7 @@
                                 <div class="hq-field-group">
                                     <label>Misc Type Dropdown</label>
                                     <select class="hq-select misc-type-select" onchange="recalcShiftPreview()">
-                                        <option value="">None — $0.00 Extra Pay</option>
+                                        <option value="">None ($0.00)</option>
                                         <option value="💵 Reimbursement">💵 Reimbursement (Closed Store / Half-Pay)</option>
                                         <option value="⚡ Peak Pay / Bonus">⚡ Peak Pay / Challenge Bonus</option>
                                         <option value="📦 Extra Delivery Fee">📦 Extra Delivery Fee</option>
@@ -1033,6 +1034,6 @@
     <!-- TOAST NOTIFICATION CONTAINER -->
     <div id="hqToastContainer" class="hq-toast-container"></div>
 
-    <script src="script.js?v=6.0.0"></script>
+    <script src="script.js?v=6.0.1"></script>
 </body>
 </html>

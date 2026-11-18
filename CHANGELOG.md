@@ -1,5 +1,13 @@
 # Changelog
 
+## [6.0.1] - 2026-11-17
+### Fixed
+- Side tabs now display only their selected page cleanly.
+- Fixed squished Gas, Expense, and Ratings section cards.
+- Typing gas or expenses automatically enables their save toggle.
+- Added All Sections tab to view full form together.
+- Widened reimbursement type dropdown so options never clip.
+
 ## [6.0.0] - 2026-11-17
 ### Added
 - Redesigned data entry into one End-of-Shift Log screen.
