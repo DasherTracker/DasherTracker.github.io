@@ -1,5 +1,10 @@
 # Changelog
 
+## [6.1.1] - 2026-11-17
+### Fixed
+- Removed Inspect Shift and Gas Logs dropdown from Month Cards.
+- Kept clean monthly totals on cards and logs in table.
+
 ## [6.1.0] - 2026-11-17
 ### Added
 - Redesigned Monthly Breakdown into an 8-column zero-scroll table.

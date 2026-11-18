@@ -1,5 +1,5 @@
 /* ==========================================================================
-   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v6.1.0)
+   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v6.1.1)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
@@ -1079,10 +1079,6 @@ function toggleMonthDrilldown(monthName) {
         rowEl.classList.toggle('expanded', !!expandedMonths[key]);
         drawerEl.style.display = expandedMonths[key] ? 'table-row' : 'none';
     }
-    const cardDrawer = document.getElementById(`card-drilldown-${key}`);
-    const cardBtn = document.getElementById(`card-expand-btn-${key}`);
-    if (cardDrawer) cardDrawer.style.display = expandedMonths[key] ? 'block' : 'none';
-    if (cardBtn) cardBtn.textContent = expandedMonths[key] ? '▲ Hide Shift & Gas Logs' : '▼ Inspect Shift & Gas Logs';
 }
 
 function buildDrilldownInnerHtml(monthName) {
@@ -1242,8 +1238,6 @@ function renderMonthlyCards(rows) {
         const gasNum = r.gasNum !== undefined ? r.gasNum : parseMoneyVal(r.gas);
         const netVal = fmtMoneyVal((r.totalPayNum || 0) - taxNum - gasNum);
         const { shifts } = getVaultRecordsForMonth(r.month);
-        const isExp = !!expandedMonths[r.month];
-        const inner = buildDrilldownInnerHtml(r.month);
 
         let badges = '';
         if (shifts.length > 0) badges += `<span class="badge-tag" style="background:rgba(56,189,248,0.14);color:#38bdf8;border:1px solid rgba(56,189,248,0.3);">${shifts.length} shifts</span>`;
@@ -1299,12 +1293,6 @@ function renderMonthlyCards(rows) {
                             <span class="mcell-sub gas-val">Gas ${escapeHtml(r.gas)}</span>
                         </div>
                     </div>
-                </div>
-                <button type="button" class="mbc-expand-btn" id="card-expand-btn-${escapeHtml(r.month)}" onclick="toggleMonthDrilldown('${escapeHtml(r.month)}')">
-                    ${isExp ? '▲ Hide Shift & Gas Logs' : '▼ Inspect Shift & Gas Logs'} (${inner.shiftsCount} / ${inner.gasCount})
-                </button>
-                <div id="card-drilldown-${escapeHtml(r.month)}" style="display:${isExp ? 'block' : 'none'};">
-                    ${inner.html}
                 </div>
             </article>
         `;
