@@ -1,10 +1,9 @@
 /* ==========================================================================
-/* ==========================================================================
-   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v5.2.0)
+   DASHER TRACKER HQ — MULTI-YEAR VAULT & COMMAND ENGINE (v6.0.0)
    ========================================================================== */
 
 const CSV_URL = 'https://docs.google.com/spreadsheets/d/e/2PACX-1vRoAqn4EkIAKojVQfFSHV5X09dbVGDnAGtogqspyJYimWfsLr6XjQr_wDp3P8E7sOfjPNLsyor4ugdR/pub?gid=1708220782&single=true&output=csv';
-const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbxL_H_bplhkzZOkjrPIn1gfJ71hFwYNo3ct9O9ygA2N3GIGP98qHmEL6giaVCynCzE/exec';
+const API_BASE_URL = 'https://script.google.com/macros/s/AKfycbxycgz669MUb1b9HNAB4Zj7LDs2rfJWYC-wFdGNl1nDoCAbmjCLh4BWRsC7ZNWTl9Q/exec';
 const EXPENSES_API_URL = `${API_BASE_URL}?action=getExpenses`;
 const VAULT_API_URL = `${API_BASE_URL}?action=getVaultData`;
 const FIREBASE_DB_URL = 'https://dasher-tracker-hq-default-rtdb.firebaseio.com';
@@ -2052,7 +2051,7 @@ function getCurrentLocalDateAndIso() {
 
 function resetShiftFormClean() {
     const form = document.getElementById('hqFormShift');
-    if (form) form.reset();
+    if (form && typeof form.reset === 'function') form.reset();
 
     const { localIso } = getCurrentLocalDateAndIso();
     const setVal = (id, v) => {
@@ -2093,7 +2092,7 @@ function resetShiftFormClean() {
 
 function resetGasFormClean() {
     const form = document.getElementById('hqFormGas');
-    if (form) form.reset();
+    if (form && typeof form.reset === 'function') form.reset();
 
     const { localDate } = getCurrentLocalDateAndIso();
     const container = document.getElementById('gasRowsContainer');
@@ -2122,7 +2121,7 @@ function resetGasFormClean() {
 
 function resetExpenseFormClean() {
     const form = document.getElementById('hqFormExpense');
-    if (form) form.reset();
+    if (form && typeof form.reset === 'function') form.reset();
 
     const { localDate } = getCurrentLocalDateAndIso();
     const container = document.getElementById('expenseRowsContainer');
@@ -2148,6 +2147,134 @@ function resetExpenseFormClean() {
     recalcExpensePreview();
 }
 
+let currentEosMode = 'shift'; // 'shift' | 'gas' | 'edit'
+let isRestoringEosDraft = false;
+const EOS_DRAFT_KEY = 'dasher_eos_draft_v6';
+
+function setEosMode(mode) {
+    currentEosMode = mode || 'shift';
+    const card = document.querySelector('.eos-modal-card');
+    if (card) card.setAttribute('data-eos-mode', currentEosMode);
+
+    const titleEl = document.getElementById('addDataModalTitle');
+    const subEl = document.getElementById('eosModalSub');
+    const iconEl = document.getElementById('eosModalIcon');
+    const submitBtn = document.getElementById('submitShiftBtn');
+    const draftBtn = document.getElementById('saveDraftBtn');
+    const clearBtn = document.getElementById('clearShiftFormBtn');
+    const badgeEl = document.getElementById('eosModeBadge');
+    const shiftWrap = document.getElementById('hqFormShift');
+    const secGas = document.getElementById('eosSecGas');
+    const secExp = document.getElementById('eosSecExpense');
+    const secRat = document.getElementById('eosSecRatings');
+
+    const toggleRailStep = (sec, visible) => {
+        const btn = document.querySelector(`.eos-rail-step[data-target="${sec}"]`);
+        if (btn) btn.style.display = visible ? '' : 'none';
+    };
+
+    if (currentEosMode === 'gas') {
+        if (shiftWrap) shiftWrap.style.display = 'none';
+        if (secGas) secGas.style.display = '';
+        if (secExp) secExp.style.display = 'none';
+        if (secRat) secRat.style.display = 'none';
+        ['time', 'earn', 'misc'].forEach(s => toggleRailStep(s, false));
+        toggleRailStep('gas', true);
+        toggleRailStep('expense', false);
+        toggleRailStep('ratings', false);
+        if (titleEl) titleEl.textContent = 'Log Gas Fill-Up(s)';
+        if (subEl) subEl.textContent = 'Quick gas entry for non-shift days';
+        if (iconEl) iconEl.textContent = '⛽';
+        if (submitBtn) submitBtn.textContent = '⛽ Save Gas Fill-Up(s)';
+        if (draftBtn) draftBtn.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = '';
+        if (badgeEl) badgeEl.textContent = '🔓 Gas Quick Log';
+        onEosToggleSection('gas', true);
+        eosSetActiveRail('gas');
+    } else if (currentEosMode === 'edit') {
+        if (shiftWrap) shiftWrap.style.display = 'flex';
+        if (secGas) secGas.style.display = 'none';
+        if (secExp) secExp.style.display = 'none';
+        if (secRat) secRat.style.display = 'none';
+        ['time', 'earn', 'misc'].forEach(s => toggleRailStep(s, true));
+        ['gas', 'expense', 'ratings'].forEach(s => toggleRailStep(s, false));
+        if (titleEl) titleEl.textContent = 'Edit Shift & Reimbursements';
+        if (subEl) subEl.textContent = 'Update shift details, reimbursements, and sync to Vault';
+        if (iconEl) iconEl.textContent = '✏️';
+        if (submitBtn) submitBtn.textContent = '💾 Save Shift Changes';
+        if (draftBtn) draftBtn.style.display = 'none';
+        if (clearBtn) clearBtn.style.display = 'none';
+        eosSetActiveRail('time');
+    } else {
+        if (shiftWrap) shiftWrap.style.display = 'flex';
+        if (secGas) secGas.style.display = '';
+        if (secExp) secExp.style.display = '';
+        if (secRat) secRat.style.display = '';
+        ['time', 'earn', 'misc', 'gas', 'expense', 'ratings'].forEach(s => toggleRailStep(s, true));
+        if (titleEl) titleEl.textContent = 'End-of-Shift Log';
+        if (subEl) subEl.textContent = 'Fill in what you have — everything saves together in one tap';
+        if (iconEl) iconEl.textContent = '⚡';
+        if (submitBtn) submitBtn.textContent = '🚀 Save Everything';
+        if (draftBtn) draftBtn.style.display = '';
+        if (clearBtn) clearBtn.style.display = '';
+        if (badgeEl) badgeEl.textContent = '🔓 Admin Verified';
+        eosSetActiveRail('time');
+    }
+}
+
+function eosSetActiveRail(sec) {
+    document.querySelectorAll('.eos-rail-step').forEach(b => {
+        b.classList.toggle('active', b.getAttribute('data-target') === sec);
+    });
+}
+
+function eosSectionId(sec) {
+    const map = { time: 'eosSecTime', earn: 'eosSecEarn', misc: 'eosSecMisc', gas: 'eosSecGas', expense: 'eosSecExpense', ratings: 'eosSecRatings' };
+    return map[sec] || '';
+}
+
+function setEosCardCollapsed(sec, collapsed) {
+    const el = document.getElementById(eosSectionId(sec));
+    if (el) el.classList.toggle('collapsed', !!collapsed);
+}
+
+function toggleEosCard(sec) {
+    const el = document.getElementById(eosSectionId(sec));
+    if (!el) return;
+    el.classList.toggle('collapsed');
+    eosSetActiveRail(sec);
+}
+
+function eosJumpTo(sec) {
+    setEosCardCollapsed(sec, false);
+    eosSetActiveRail(sec);
+    const el = document.getElementById(eosSectionId(sec));
+    if (el && typeof el.scrollIntoView === 'function') {
+        el.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+}
+
+function onEosToggleSection(sec, checked) {
+    const toggleId = sec === 'gas' ? 'eosToggleGas' : (sec === 'expense' ? 'eosToggleExpense' : 'eosToggleRatings');
+    const cb = document.getElementById(toggleId);
+    if (cb) cb.checked = !!checked;
+    setEosCardCollapsed(sec, !checked);
+    if (checked) {
+        const defDate = getShiftFormDefaultIsoDate();
+        if (sec === 'gas') {
+            document.querySelectorAll('#gasRowsContainer .gas-date-input').forEach(el => { if (!el.value) el.value = defDate; });
+        } else if (sec === 'expense') {
+            document.querySelectorAll('#expenseRowsContainer .exp-date-input').forEach(el => { if (!el.value) el.value = defDate; });
+        }
+        eosSetActiveRail(sec);
+    }
+    recalcShiftPreview();
+    if (!isRestoringEosDraft && currentEosMode === 'shift') {
+        const ov = document.getElementById('addDataModalOverlay');
+        if (ov && ov.style.display === 'flex') saveEosDraft(false);
+    }
+}
+
 async function openAddDataModal(defaultTab = 'shift') {
     if (!currentAdminUser || !(await isAuthorizedAdminEmail(currentAdminUser.email))) {
         openAdminAuthModal();
@@ -2157,12 +2284,41 @@ async function openAddDataModal(defaultTab = 'shift') {
     const overlay = document.getElementById('addDataModalOverlay');
     if (overlay) overlay.style.display = 'flex';
 
-    // Always provide a fresh, clean Add Data form so the user can immediately enter a new shift, gas fill-up, or expense
-    resetShiftFormClean();
-    resetGasFormClean();
-    resetExpenseFormClean();
-    prefillRatingsFormInputs();
-    switchAddDataTab(defaultTab);
+    isRestoringEosDraft = true;
+    try {
+        clearEosValidation();
+        resetShiftFormClean();
+        resetGasFormClean();
+        resetExpenseFormClean();
+        prefillRatingsFormInputs();
+
+        const gasCb = document.getElementById('eosToggleGas');
+        const expCb = document.getElementById('eosToggleExpense');
+        const ratCb = document.getElementById('eosToggleRatings');
+        if (gasCb) gasCb.checked = false;
+        if (expCb) expCb.checked = false;
+        if (ratCb) ratCb.checked = false;
+
+        ['time', 'earn', 'misc'].forEach(s => setEosCardCollapsed(s, false));
+        ['gas', 'expense', 'ratings'].forEach(s => setEosCardCollapsed(s, true));
+    } finally {
+        isRestoringEosDraft = false;
+    }
+
+    if (defaultTab === 'gas') {
+        setEosMode('gas');
+    } else {
+        setEosMode('shift');
+        restoreEosDraft();
+        if (defaultTab === 'expense') {
+            onEosToggleSection('expense', true);
+            eosJumpTo('expense');
+        } else if (defaultTab === 'ratings') {
+            onEosToggleSection('ratings', true);
+            eosJumpTo('ratings');
+        }
+    }
+    recalcShiftPreview();
 }
 
 function closeAddDataModal() {
@@ -2171,51 +2327,62 @@ function closeAddDataModal() {
 }
 
 function switchAddDataTab(tabName) {
-    const tabs = ['shift', 'gas', 'expense', 'ratings'];
-    tabs.forEach(t => {
-        const cap = t.charAt(0).toUpperCase() + t.slice(1);
-        const btn = document.getElementById(`hqTabBtn${cap}`);
-        const pane = document.getElementById(`hqForm${cap}`);
-        if (btn) {
-            if (t === tabName) btn.classList.add('active');
-            else btn.classList.remove('active');
+    if (tabName === 'gas') {
+        setEosMode('gas');
+    } else {
+        setEosMode('shift');
+        if (tabName === 'expense' || tabName === 'ratings') {
+            onEosToggleSection(tabName, true);
+            eosJumpTo(tabName);
+        } else {
+            eosJumpTo('time');
         }
-        if (pane) {
-            pane.style.display = (t === tabName) ? 'block' : 'none';
-        }
-    });
+    }
 }
 
-function addMiscPayRow() {
+function addMiscPayRow(initialType = '', initialAmount = 0, initialNote = '', initialIsoDate = '') {
     const container = document.getElementById('miscPayRowsContainer');
     if (!container) return;
     const idx = container.children.length;
     const row = document.createElement('div');
     row.className = 'misc-pay-row';
     row.setAttribute('data-row-idx', idx);
+    const typeVal = String(initialType || '');
+    const amtNum = Number(initialAmount || 0);
+    const amtVal = (initialAmount !== undefined && initialAmount !== null && !isNaN(amtNum)) ? amtNum.toFixed(2) : '0.00';
+    const noteVal = String(initialNote || '');
+    const hasOwnDate = /^\d{4}-\d{2}-\d{2}$/.test(String(initialIsoDate || ''));
+    const dateVal = hasOwnDate ? initialIsoDate : getShiftFormDefaultIsoDate();
+
+    const selReimb = typeVal.indexOf('Reimbursement') !== -1 ? 'selected' : '';
+    const selPeak = (typeVal.indexOf('Peak') !== -1 || typeVal.indexOf('Bonus') !== -1) ? 'selected' : '';
+    const selExtra = typeVal.indexOf('Extra') !== -1 ? 'selected' : '';
+    const selOther = typeVal.indexOf('Other') !== -1 ? 'selected' : '';
+
     row.innerHTML = `
         <div class="hq-field-group">
             <label>Misc Type Dropdown</label>
             <select class="hq-select misc-type-select" onchange="recalcShiftPreview()">
-                <option value="💵 Reimbursement">💵 Reimbursement (Closed Store / Half-Pay)</option>
-                <option value="⚡ Peak Pay / Bonus">⚡ Peak Pay / Challenge Bonus</option>
-                <option value="📦 Extra Delivery Fee">📦 Extra Delivery Fee</option>
-                <option value="🎉 Other Misc Pay">🎉 Other Misc Pay</option>
+                <option value="">None — $0.00 Extra Pay</option>
+                <option value="💵 Reimbursement" ${selReimb}>💵 Reimbursement (Closed Store / Half-Pay)</option>
+                <option value="⚡ Peak Pay / Bonus" ${selPeak}>⚡ Peak Pay / Challenge Bonus</option>
+                <option value="📦 Extra Delivery Fee" ${selExtra}>📦 Extra Delivery Fee</option>
+                <option value="🎉 Other Misc Pay" ${selOther}>🎉 Other Misc Pay</option>
             </select>
         </div>
         <div class="hq-field-group">
             <label>📅 Date</label>
-            <input type="date" class="hq-input misc-date-input" value="${getShiftFormDefaultIsoDate()}" oninput="this.dataset.touched='1'; recalcShiftPreview()">
+            <input type="date" class="hq-input misc-date-input" value="${dateVal}" ${hasOwnDate ? 'data-touched="1"' : ''} oninput="this.dataset.touched='1'; recalcShiftPreview()">
         </div>
         <div class="hq-field-group">
             <label>Misc Amount ($)</label>
-            <input type="number" step="0.01" min="0" class="hq-input misc-amount-input" value="0.00" placeholder="0.00" oninput="recalcShiftPreview()">
+            <input type="number" step="0.01" min="0" class="hq-input misc-amount-input" value="${amtVal}" placeholder="0.00" oninput="recalcShiftPreview()">
         </div>
         <div class="hq-field-group misc-note-group">
             <label>Misc Reason / Note</label>
-            <input type="text" class="hq-input misc-note-input" placeholder="e.g. Extra delivery fee ($3.78)" oninput="recalcShiftPreview()">
+            <input type="text" class="hq-input misc-note-input" value="${escapeHtml(noteVal)}" placeholder="e.g. Extra delivery fee ($3.78)" oninput="recalcShiftPreview()">
         </div>
-        <button type="button" class="remove-misc-row-btn" onclick="this.parentElement.remove(); recalcShiftPreview();" title="Remove Misc Row">&times;</button>
+        <button type="button" class="remove-misc-row-btn" onclick="this.parentElement.remove(); recalcShiftPreview(); saveEosDraft(false);" title="Remove Misc Row">&times;</button>
     `;
     container.appendChild(row);
     recalcShiftPreview();
@@ -2386,6 +2553,10 @@ function recalcShiftPreview() {
     if (pTaxes) pTaxes.textContent = `$${taxSetAside.toFixed(2)}`;
     if (pDed) pDed.textContent = `$${irsDeduction.toFixed(2)}`;
 
+    updateEosChipsAndFooter({
+        startVal, endVal, activeStr, miles, grossTotal, taxSetAside, basePay, tips, cashTips, miscAmount
+    });
+
     return {
         year: targetYear,
         month: targetMonth,
@@ -2394,6 +2565,125 @@ function recalcShiftPreview() {
         hourlyRate,
         taxSetAside
     };
+}
+
+function getGasRowsSummaryFromDom() {
+    const rows = document.querySelectorAll('#gasRowsContainer .gas-entry-row');
+    let totalCost = 0;
+    let validCount = 0;
+    rows.forEach(r => {
+        const g = parseFloat((r.querySelector('.gas-gallons-input') || {}).value) || 0;
+        const t = parseFloat((r.querySelector('.gas-total-input') || {}).value) || 0;
+        const s = ((r.querySelector('.gas-station-input') || {}).value || '').trim();
+        totalCost += t;
+        if (s && (t > 0 || g > 0)) validCount++;
+    });
+    return { totalCost, validCount, rowCount: rows.length };
+}
+
+function getExpenseRowsSummaryFromDom() {
+    const rows = document.querySelectorAll('#expenseRowsContainer .expense-entry-row');
+    let totalCost = 0;
+    let validCount = 0;
+    rows.forEach(r => {
+        const name = ((r.querySelector('.exp-name-input') || {}).value || '').trim();
+        const cost = parseFloat((r.querySelector('.exp-cost-input') || {}).value) || 0;
+        totalCost += cost;
+        if (name && cost >= 0) validCount++;
+    });
+    return { totalCost, validCount, rowCount: rows.length };
+}
+
+function fmtShortChipTime(isoStr) {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+}
+
+function fmtShortChipDate(isoStr) {
+    if (!isoStr) return '';
+    const d = new Date(isoStr);
+    if (isNaN(d.getTime())) return '';
+    return d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+}
+
+function updateEosChipsAndFooter(shiftInfo) {
+    const info = shiftInfo || (() => {
+        const basePay = parseFloat((document.getElementById('shiftBasePayInput') || {}).value) || 0;
+        const tips = parseFloat((document.getElementById('shiftTipsInput') || {}).value) || 0;
+        const cashTips = parseFloat((document.getElementById('shiftCashTipsInput') || {}).value) || 0;
+        const miles = parseFloat((document.getElementById('shiftMilesInput') || {}).value) || 0;
+        const { miscAmount } = collectMiscPaySummary();
+        const grossTotal = basePay + tips + cashTips + miscAmount;
+        return {
+            startVal: (document.getElementById('shiftStartInput') || {}).value || '',
+            endVal: (document.getElementById('shiftEndInput') || {}).value || '',
+            activeStr: (document.getElementById('shiftActiveHoursInput') || {}).value || '',
+            miles,
+            grossTotal,
+            taxSetAside: grossTotal * 0.30,
+            basePay, tips, cashTips, miscAmount
+        };
+    })();
+
+    const gasOn = currentEosMode === 'gas' || !!(document.getElementById('eosToggleGas') || {}).checked;
+    const expOn = !!(document.getElementById('eosToggleExpense') || {}).checked;
+    const ratOn = !!(document.getElementById('eosToggleRatings') || {}).checked;
+
+    const gasSum = getGasRowsSummaryFromDom();
+    const expSum = getExpenseRowsSummaryFromDom();
+    const activeGasCost = gasOn ? gasSum.totalCost : 0;
+    const netKeep = info.grossTotal - info.taxSetAside - activeGasCost;
+
+    const fGas = document.getElementById('eosFooterGas');
+    const fNet = document.getElementById('eosFooterNet');
+    if (fGas) fGas.textContent = activeGasCost > 0 ? `-$${activeGasCost.toFixed(2)}` : '$0.00';
+    if (fNet) fNet.textContent = `$${netKeep.toFixed(2)}`;
+
+    // Chips
+    const deliv = (document.getElementById('shiftDeliveriesInput') || {}).value;
+    const timeParts = [];
+    const dTxt = fmtShortChipDate(info.startVal);
+    const sTxt = fmtShortChipTime(info.startVal);
+    const eTxt = fmtShortChipTime(info.endVal);
+    if (dTxt) timeParts.push(dTxt);
+    if (sTxt && eTxt) timeParts.push(`${sTxt} – ${eTxt}`);
+    if (info.activeStr) timeParts.push(`${info.activeStr} active`);
+    if (info.miles > 0) timeParts.push(`${info.miles} mi`);
+    if (deliv !== '' && deliv !== undefined) timeParts.push(`${deliv} orders`);
+
+    const setChip = (id, text) => { const el = document.getElementById(id); if (el) el.textContent = text; };
+    setChip('eosChipTime', timeParts.join(' • ') || 'Required');
+    setChip('eosChipEarn', (info.basePay > 0 || info.tips > 0 || info.cashTips > 0)
+        ? `Base $${info.basePay.toFixed(2)} • Tips $${info.tips.toFixed(2)} • Cash $${info.cashTips.toFixed(2)}`
+        : 'Required');
+
+    const miscRows = document.querySelectorAll('#miscPayRowsContainer .misc-pay-row');
+    let miscFilled = 0;
+    miscRows.forEach(r => {
+        const a = parseFloat((r.querySelector('.misc-amount-input') || {}).value) || 0;
+        const n = ((r.querySelector('.misc-note-input') || {}).value || '').trim();
+        if (a > 0 || n) miscFilled++;
+    });
+    setChip('eosChipMisc', miscFilled > 0 ? `${miscFilled} item${miscFilled === 1 ? '' : 's'} • +$${info.miscAmount.toFixed(2)}` : 'None — $0.00');
+    setChip('eosChipGas', gasOn ? `${gasSum.validCount || gasSum.rowCount} fill-up(s) • $${gasSum.totalCost.toFixed(2)}` : 'Optional — off');
+    setChip('eosChipExpense', expOn ? `${expSum.validCount || expSum.rowCount} item(s) • $${expSum.totalCost.toFixed(2)}` : 'Optional — off');
+    setChip('eosChipRatings', ratOn ? 'Included' : 'Optional — off');
+
+    // Rail step completion indicators
+    const setDone = (sec, done) => {
+        const b = document.querySelector(`.eos-rail-step[data-target="${sec}"]`);
+        if (b) b.classList.toggle('done', !!done);
+    };
+    const timeDone = !!(info.startVal && info.endVal && info.activeStr && (document.getElementById('shiftMilesInput') || {}).value !== '' && deliv !== '');
+    const earnDone = ((document.getElementById('shiftBasePayInput') || {}).value !== '' && (document.getElementById('shiftTipsInput') || {}).value !== '');
+    setDone('time', timeDone);
+    setDone('earn', earnDone);
+    setDone('misc', miscFilled > 0);
+    setDone('gas', gasOn && gasSum.validCount > 0);
+    setDone('expense', expOn && expSum.validCount > 0);
+    setDone('ratings', ratOn);
 }
 
 /* --- Multi-Row Bulk Gas Entry Builders & Calculators --- */
@@ -2524,6 +2814,11 @@ function recalcGasPreview(changedField) {
     if (countEl) countEl.textContent = `${displayCount} Fill-Up${displayCount === 1 ? '' : 's'}`;
     if (galsEl) galsEl.textContent = `${totalGallons.toFixed(3)} gal`;
     if (costEl) costEl.textContent = `$${totalCost.toFixed(2)}`;
+    updateEosChipsAndFooter();
+    if (!isRestoringEosDraft && currentEosMode === 'shift') {
+        const ov = document.getElementById('addDataModalOverlay');
+        if (ov && ov.style.display === 'flex') saveEosDraft(false);
+    }
 }
 
 /* --- Multi-Row Bulk Expense Entry Builders & Calculators --- */
@@ -2601,6 +2896,11 @@ function recalcExpensePreview() {
     if (gearEl) gearEl.textContent = `$${gearSub.toFixed(2)}`;
     if (maintEl) maintEl.textContent = `$${maintSub.toFixed(2)}`;
     if (combEl) combEl.textContent = `$${combined.toFixed(2)} (${count} Item${count === 1 ? '' : 's'})`;
+    updateEosChipsAndFooter();
+    if (!isRestoringEosDraft && currentEosMode === 'shift') {
+        const ov = document.getElementById('addDataModalOverlay');
+        if (ov && ov.style.display === 'flex') saveEosDraft(false);
+    }
 }
 
 function prefillRatingsFormInputs() {
@@ -2623,296 +2923,533 @@ function prefillRatingsFormInputs() {
     setVal('compAboveInput', latestRatingsState.aboveBeyond);
 }
 
-/* --- 4. Vault API Submit Handlers (Single & Bulk) --- */
-async function submitShiftForm(event) {
-    event.preventDefault();
-    if (!currentAdminUser) return openAdminAuthModal();
+/* --- 4. Unified End-of-Shift Draft, Validation & Bundle Submit (v6.0.0) --- */
 
-    const btn = document.getElementById('submitShiftBtn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Saving to Vault...'; }
-
-    try {
-        const calc = recalcShiftPreview();
-        const { miscAmount, miscCategory, miscNote } = collectMiscPaySummary();
-
-        const params = new URLSearchParams({
-            action: 'addShift',
-            adminEmail: currentAdminUser.email,
-            year: String(calc.year),
-            month: calc.month,
-            start: document.getElementById('shiftStartInput').value,
-            end: document.getElementById('shiftEndInput').value,
-            hours: calc.hours,
-            activeHours: document.getElementById('shiftActiveHoursInput').value,
-            miles: document.getElementById('shiftMilesInput').value,
-            deliveries: document.getElementById('shiftDeliveriesInput').value,
-            noTips: document.getElementById('shiftNoTipsInput').value || '0',
-            basePay: document.getElementById('shiftBasePayInput').value,
-            tips: document.getElementById('shiftTipsInput').value,
-            cashTips: document.getElementById('shiftCashTipsInput').value || '0',
-            miscAmount: String(miscAmount),
-            miscCategory: miscCategory,
-            miscNote: miscNote
+function onEosFormInput(evt) {
+    if (evt && evt.target && evt.target.classList) {
+        evt.target.classList.remove('eos-invalid');
+    } else {
+        document.querySelectorAll('#eosForm .eos-invalid').forEach(el => {
+            if (String(el.value || '').trim() !== '') el.classList.remove('eos-invalid');
         });
-
-        const res = await fetch(`${API_BASE_URL}?${params.toString()}`);
-        const json = await res.json();
-
-        if (json && json.success && json.shift) {
-            liveVaultData.shifts.push(json.shift);
-            if (!liveVaultData.years.includes(json.shift.year)) {
-                liveVaultData.years.push(json.shift.year);
-            }
-            if (json.updatedLifetime) {
-                if (!liveVaultData.ratings) liveVaultData.ratings = {};
-                liveVaultData.ratings.lifetime = Number(json.updatedLifetime);
-                latestRatingsState.lifetime = Number(json.updatedLifetime);
-            } else if (Number(json.shift.deliveries) > 0) {
-                const newLife = (latestRatingsState.lifetime || 1318) + Number(json.shift.deliveries);
-                if (!liveVaultData.ratings) liveVaultData.ratings = {};
-                liveVaultData.ratings.lifetime = newLife;
-                latestRatingsState.lifetime = newLife;
-            }
-            try {
-                localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData));
-                fetch(`${FIREBASE_DB_URL}/vault.json`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...liveVaultData, lastSynced: Date.now() })
-                }).catch(() => {});
-            } catch (e) {}
-            renderVaultYearSelectorPills();
-            expandedMonths[json.shift.month] = true;
-
-            if (currentVaultYear !== 'all' && Number(currentVaultYear) === Number(json.shift.year) && Number(json.shift.year) !== 2026) {
-                renderVaultYearFromRecords(json.shift.year);
-            } else if (cachedRawCsvData) {
-                processData(cachedRawCsvData);
-            }
-
-            showHqToast(`Shift ($${Number(json.shift.total).toFixed(2)}) saved to ${json.shift.month} ${json.shift.year} Vault!`);
-            // Reset Shift form completely clean and keep modal ready or close cleanly
-            resetShiftFormClean();
-            closeAddDataModal();
-        } else {
-            showHqToast((json && json.error) || 'Could not save shift.', true);
-        }
-    } catch (err) {
-        console.error('Error submitting shift:', err);
-        showHqToast('Network error while saving shift.', true);
-    } finally {
-        if (btn) { btn.disabled = false; btn.textContent = '🚀 Save Shift to Vault'; }
     }
+    const banner = document.getElementById('eosValidationBanner');
+    if (banner && banner.style.display !== 'none') banner.style.display = 'none';
+    if (currentEosMode === 'shift') saveEosDraft(false);
 }
 
-async function submitGasForm(event) {
-    event.preventDefault();
-    if (!currentAdminUser) return openAdminAuthModal();
+function saveEosDraft(showToast = false) {
+    if (currentEosMode !== 'shift') return;
+    try {
+        const g = id => (document.getElementById(id) || {}).value || '';
+        const chk = id => !!(document.getElementById(id) || {}).checked;
+        const miscRows = Array.from(document.querySelectorAll('#miscPayRowsContainer .misc-pay-row')).map(r => ({
+            type: (r.querySelector('.misc-type-select') || {}).value || '',
+            date: (r.querySelector('.misc-date-input') || {}).value || '',
+            amount: (r.querySelector('.misc-amount-input') || {}).value || '0.00',
+            note: (r.querySelector('.misc-note-input') || {}).value || ''
+        }));
+        const gasRows = Array.from(document.querySelectorAll('#gasRowsContainer .gas-entry-row')).map(r => ({
+            date: (r.querySelector('.gas-date-input') || {}).value || '',
+            station: (r.querySelector('.gas-station-input') || {}).value || '',
+            price: (r.querySelector('.gas-price-input') || {}).value || '',
+            gallons: (r.querySelector('.gas-gallons-input') || {}).value || '',
+            total: (r.querySelector('.gas-total-input') || {}).value || ''
+        }));
+        const expRows = Array.from(document.querySelectorAll('#expenseRowsContainer .expense-entry-row')).map(r => ({
+            date: (r.querySelector('.exp-date-input') || {}).value || '',
+            category: (r.querySelector('.exp-category-input') || {}).value || 'Gear',
+            name: (r.querySelector('.exp-name-input') || {}).value || '',
+            desc: (r.querySelector('.exp-desc-input') || {}).value || '',
+            cost: (r.querySelector('.exp-cost-input') || {}).value || ''
+        }));
+        const draft = {
+            savedAt: Date.now(),
+            shift: {
+                start: g('shiftStartInput'), end: g('shiftEndInput'), activeHours: g('shiftActiveHoursInput'),
+                miles: g('shiftMilesInput'), deliveries: g('shiftDeliveriesInput'), noTips: g('shiftNoTipsInput'),
+                basePay: g('shiftBasePayInput'), tips: g('shiftTipsInput'), cashTips: g('shiftCashTipsInput')
+            },
+            miscRows,
+            gasOn: chk('eosToggleGas'), gasRows,
+            expOn: chk('eosToggleExpense'), expRows,
+            ratOn: chk('eosToggleRatings'),
+            ratings: {
+                lifetime: g('ratLifetimeInput'), customerRating: g('ratCustomerInput'), overallRating: g('ratOverallInput'),
+                stars5: g('rat5StarInput'), stars4: g('rat4StarInput'), stars3: g('rat3StarInput'), stars2: g('rat2StarInput'), stars1: g('rat1StarInput'),
+                communication: g('compCommInput'), orderHandling: g('compHandlingInput'), instructions: g('compInstrInput'),
+                friendliness: g('compFriendlyInput'), aboveBeyond: g('compAboveInput')
+            }
+        };
+        localStorage.setItem(EOS_DRAFT_KEY, JSON.stringify(draft));
+        const pill = document.getElementById('eosDraftPill');
+        if (pill) pill.style.display = 'inline-flex';
+        if (showToast) showHqToast('Draft saved locally.');
+    } catch (e) {}
+}
 
-    const rows = Array.from(document.querySelectorAll('#gasRowsContainer .gas-entry-row'));
-    const entries = rows.map(r => ({
+function restoreEosDraft() {
+    isRestoringEosDraft = true;
+    try {
+        const raw = localStorage.getItem(EOS_DRAFT_KEY);
+        if (!raw) {
+            const pill = document.getElementById('eosDraftPill');
+            if (pill) pill.style.display = 'none';
+            return false;
+        }
+        const d = JSON.parse(raw);
+        if (!d || typeof d !== 'object') return false;
+        const setVal = (id, v) => { const el = document.getElementById(id); if (el && v !== undefined) el.value = v; };
+        if (d.shift) {
+            setVal('shiftStartInput', d.shift.start); setVal('shiftEndInput', d.shift.end);
+            setVal('shiftActiveHoursInput', d.shift.activeHours); setVal('shiftMilesInput', d.shift.miles);
+            setVal('shiftDeliveriesInput', d.shift.deliveries); setVal('shiftNoTipsInput', d.shift.noTips);
+            setVal('shiftBasePayInput', d.shift.basePay); setVal('shiftTipsInput', d.shift.tips);
+            setVal('shiftCashTipsInput', d.shift.cashTips);
+        }
+        if (Array.isArray(d.miscRows) && d.miscRows.length > 0) {
+            const mc = document.getElementById('miscPayRowsContainer');
+            if (mc) {
+                mc.innerHTML = '';
+                d.miscRows.forEach(m => addMiscPayRow(m.type || '', parseFloat(m.amount) || 0, m.note || '', m.date || ''));
+            }
+        }
+        if (Array.isArray(d.gasRows) && d.gasRows.length > 0) {
+            const gc = document.getElementById('gasRowsContainer');
+            if (gc) {
+                while (gc.children.length < d.gasRows.length) addGasEntryRow();
+                const domRows = gc.querySelectorAll('.gas-entry-row');
+                d.gasRows.forEach((g, i) => {
+                    if (!domRows[i]) return;
+                    domRows[i].querySelector('.gas-date-input').value = g.date || '';
+                    domRows[i].querySelector('.gas-station-input').value = g.station || '';
+                    domRows[i].querySelector('.gas-price-input').value = g.price || '';
+                    domRows[i].querySelector('.gas-gallons-input').value = g.gallons || '';
+                    domRows[i].querySelector('.gas-total-input').value = g.total || '';
+                });
+                recalcGasPreview();
+            }
+        }
+        if (Array.isArray(d.expRows) && d.expRows.length > 0) {
+            const ec = document.getElementById('expenseRowsContainer');
+            if (ec) {
+                while (ec.children.length < d.expRows.length) addExpenseEntryRow();
+                const domRows = ec.querySelectorAll('.expense-entry-row');
+                d.expRows.forEach((ex, i) => {
+                    if (!domRows[i]) return;
+                    domRows[i].querySelector('.exp-date-input').value = ex.date || '';
+                    domRows[i].querySelector('.exp-category-input').value = ex.category || 'Gear';
+                    domRows[i].querySelector('.exp-name-input').value = ex.name || '';
+                    domRows[i].querySelector('.exp-desc-input').value = ex.desc || '';
+                    domRows[i].querySelector('.exp-cost-input').value = ex.cost || '';
+                });
+                recalcExpensePreview();
+            }
+        }
+        if (d.ratings && d.ratOn) {
+            setVal('ratLifetimeInput', d.ratings.lifetime); setVal('ratCustomerInput', d.ratings.customerRating);
+            setVal('ratOverallInput', d.ratings.overallRating); setVal('rat5StarInput', d.ratings.stars5);
+            setVal('rat4StarInput', d.ratings.stars4); setVal('rat3StarInput', d.ratings.stars3);
+            setVal('rat2StarInput', d.ratings.stars2); setVal('rat1StarInput', d.ratings.stars1);
+            setVal('compCommInput', d.ratings.communication); setVal('compHandlingInput', d.ratings.orderHandling);
+            setVal('compInstrInput', d.ratings.instructions); setVal('compFriendlyInput', d.ratings.friendliness);
+            setVal('compAboveInput', d.ratings.aboveBeyond);
+        }
+        onEosToggleSection('gas', !!d.gasOn);
+        onEosToggleSection('expense', !!d.expOn);
+        onEosToggleSection('ratings', !!d.ratOn);
+        const pill = document.getElementById('eosDraftPill');
+        if (pill) pill.style.display = 'inline-flex';
+        recalcShiftPreview();
+        return true;
+    } catch (e) { return false; }
+    finally { isRestoringEosDraft = false; }
+}
+
+function clearEosDraft() {
+    try { localStorage.removeItem(EOS_DRAFT_KEY); } catch (e) {}
+    const pill = document.getElementById('eosDraftPill');
+    if (pill) pill.style.display = 'none';
+}
+
+function resetEndOfShiftAll(clearDraft = true) {
+    clearEosValidation();
+    resetShiftFormClean();
+    resetGasFormClean();
+    resetExpenseFormClean();
+    if (currentEosMode !== 'gas') {
+        onEosToggleSection('gas', false);
+        onEosToggleSection('expense', false);
+        onEosToggleSection('ratings', false);
+    }
+    if (clearDraft) clearEosDraft();
+    recalcShiftPreview();
+}
+
+function clearEosValidation() {
+    document.querySelectorAll('#eosForm .eos-invalid').forEach(el => el.classList.remove('eos-invalid'));
+    const banner = document.getElementById('eosValidationBanner');
+    if (banner) { banner.style.display = 'none'; banner.textContent = ''; }
+}
+
+function validateEosForm() {
+    clearEosValidation();
+    const errors = [];
+    let firstInvalidSec = null;
+    const markInvalid = (el, msg, sec) => {
+        if (el) el.classList.add('eos-invalid');
+        errors.push(msg);
+        if (!firstInvalidSec) firstInvalidSec = sec;
+    };
+
+    if (currentEosMode === 'shift' || currentEosMode === 'edit') {
+        const reqShift = [
+            ['shiftStartInput', 'Start Date & Time', 'time'],
+            ['shiftEndInput', 'End Date & Time', 'time'],
+            ['shiftActiveHoursInput', 'Active Hours', 'time'],
+            ['shiftMilesInput', 'Miles Driven', 'time'],
+            ['shiftDeliveriesInput', 'Deliveries', 'time'],
+            ['shiftBasePayInput', 'Base Pay', 'earn'],
+            ['shiftTipsInput', 'In-App Tips', 'earn']
+        ];
+        reqShift.forEach(([id, label, sec]) => {
+            const el = document.getElementById(id);
+            if (!el || String(el.value || '').trim() === '') markInvalid(el, `${label} is required`, sec);
+        });
+        const sEl = document.getElementById('shiftStartInput');
+        const eEl = document.getElementById('shiftEndInput');
+        if (sEl && eEl && sEl.value && eEl.value && new Date(eEl.value) <= new Date(sEl.value)) {
+            markInvalid(eEl, 'End time must be after Start time', 'time');
+        }
+    }
+
+    const gasActive = currentEosMode === 'gas' || !!(document.getElementById('eosToggleGas') || {}).checked;
+    if (gasActive) {
+        const gRows = Array.from(document.querySelectorAll('#gasRowsContainer .gas-entry-row'));
+        let hasValidGas = false;
+        gRows.forEach(r => {
+            const st = r.querySelector('.gas-station-input');
+            const tot = r.querySelector('.gas-total-input');
+            const gal = r.querySelector('.gas-gallons-input');
+            const stVal = ((st || {}).value || '').trim();
+            const totVal = parseFloat((tot || {}).value) || 0;
+            const galVal = parseFloat((gal || {}).value) || 0;
+            if (stVal && (totVal > 0 || galVal > 0)) {
+                hasValidGas = true;
+            } else if (stVal || totVal > 0 || galVal > 0) {
+                if (!stVal) markInvalid(st, 'Gas station name is required', 'gas');
+                if (!(totVal > 0 || galVal > 0)) markInvalid(tot, 'Gas total or gallons is required', 'gas');
+            }
+        });
+        if (!hasValidGas && gRows.length > 0) {
+            const r0 = gRows[0];
+            if (errors.every(m => !m.includes('Gas'))) {
+                markInvalid(r0.querySelector('.gas-station-input'), 'Enter at least one Gas station and cost', 'gas');
+            }
+        }
+    }
+
+    const expActive = currentEosMode === 'shift' && !!(document.getElementById('eosToggleExpense') || {}).checked;
+    if (expActive) {
+        const eRows = Array.from(document.querySelectorAll('#expenseRowsContainer .expense-entry-row'));
+        let hasValidExp = false;
+        eRows.forEach(r => {
+            const nm = r.querySelector('.exp-name-input');
+            const cs = r.querySelector('.exp-cost-input');
+            const nmVal = ((nm || {}).value || '').trim();
+            const csRaw = String((cs || {}).value || '').trim();
+            if (nmVal && csRaw !== '' && parseFloat(csRaw) >= 0) {
+                hasValidExp = true;
+            } else if (nmVal || csRaw !== '') {
+                if (!nmVal) markInvalid(nm, 'Expense item name is required', 'expense');
+                if (csRaw === '' || parseFloat(csRaw) < 0) markInvalid(cs, 'Valid expense cost is required', 'expense');
+            }
+        });
+        if (!hasValidExp && eRows.length > 0 && errors.every(m => !m.includes('Expense'))) {
+            markInvalid(eRows[0].querySelector('.exp-name-input'), 'Enter at least one Expense item and cost', 'expense');
+        }
+    }
+
+    if (errors.length > 0) {
+        if (firstInvalidSec) eosJumpTo(firstInvalidSec);
+        const banner = document.getElementById('eosValidationBanner');
+        if (banner) {
+            banner.textContent = `⚠️ Please fix: ${errors.slice(0, 3).join(' • ')}${errors.length > 3 ? ` (+${errors.length - 3} more)` : ''}`;
+            banner.style.display = 'block';
+        }
+        return { valid: false, errors };
+    }
+    return { valid: true, errors: [] };
+}
+
+function collectGasEntriesFromDom() {
+    return Array.from(document.querySelectorAll('#gasRowsContainer .gas-entry-row')).map(r => ({
         date: (r.querySelector('.gas-date-input') || {}).value || '',
         station: ((r.querySelector('.gas-station-input') || {}).value || '').trim(),
         price: (r.querySelector('.gas-price-input') || {}).value || '0',
         gallons: (r.querySelector('.gas-gallons-input') || {}).value || '0',
         total: (r.querySelector('.gas-total-input') || {}).value || '0'
     })).filter(e => e.station && (parseFloat(e.total) > 0 || parseFloat(e.gallons) > 0));
-
-    if (entries.length === 0) {
-        showHqToast('Please enter at least one valid gas fill-up.', true);
-        return;
-    }
-
-    const btn = document.getElementById('submitGasBtn');
-    if (btn) { btn.disabled = true; btn.textContent = `Saving ${entries.length} Fill-Up(s)...`; }
-
-    try {
-        const params = new URLSearchParams({
-            action: entries.length > 1 ? 'addGasBulk' : 'addGas',
-            adminEmail: currentAdminUser.email,
-            date: entries[0].date,
-            station: entries[0].station,
-            price: entries[0].price,
-            gallons: entries[0].gallons,
-            total: entries[0].total,
-            entriesJson: JSON.stringify(entries)
-        });
-
-        const res = await fetch(`${API_BASE_URL}?${params.toString()}`);
-        const json = await res.json();
-
-        const savedList = (json && Array.isArray(json.gasItems))
-            ? json.gasItems
-            : (json && json.gas ? [json.gas] : []);
-
-        if (json && json.success && savedList.length > 0) {
-            savedList.forEach(g => {
-                liveVaultData.gas.push(g);
-                if (!liveVaultData.years.includes(g.year)) {
-                    liveVaultData.years.push(g.year);
-                }
-                expandedMonths[g.month] = true;
-            });
-
-            try {
-                localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData));
-                fetch(`${FIREBASE_DB_URL}/vault.json`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...liveVaultData, lastSynced: Date.now() })
-                }).catch(() => {});
-            } catch (e) {}
-            renderVaultYearSelectorPills();
-
-            if (cachedRawCsvData) processData(cachedRawCsvData);
-            const totalSavedDollar = savedList.reduce((acc, g) => acc + (Number(g.total) || 0), 0);
-            showHqToast(`${savedList.length} Gas Fill-Up(s) ($${totalSavedDollar.toFixed(2)}) saved to Vault!`);
-            resetGasFormClean();
-            closeAddDataModal();
-        } else {
-            showHqToast((json && json.error) || 'Could not save gas fill-up(s).', true);
-        }
-    } catch (err) {
-        console.error('Error submitting gas:', err);
-        showHqToast('Network error while saving gas fill-up(s).', true);
-    } finally {
-        if (btn) { btn.disabled = false; btn.textContent = '⛽ Save Gas Fill-Up(s) to Vault'; }
-    }
 }
 
-async function submitExpenseForm(event) {
-    event.preventDefault();
-    if (!currentAdminUser) return openAdminAuthModal();
-
-    const rows = Array.from(document.querySelectorAll('#expenseRowsContainer .expense-entry-row'));
-    const entries = rows.map(r => ({
+function collectExpenseEntriesFromDom() {
+    return Array.from(document.querySelectorAll('#expenseRowsContainer .expense-entry-row')).map(r => ({
         date: (r.querySelector('.exp-date-input') || {}).value || '',
         category: (r.querySelector('.exp-category-input') || {}).value || 'Gear',
         name: ((r.querySelector('.exp-name-input') || {}).value || '').trim(),
         desc: ((r.querySelector('.exp-desc-input') || {}).value || '').trim(),
         cost: (r.querySelector('.exp-cost-input') || {}).value || '0'
     })).filter(e => e.name && parseFloat(e.cost) >= 0);
-
-    if (entries.length === 0) {
-        showHqToast('Please enter at least one valid expense item.', true);
-        return;
-    }
-
-    const btn = document.getElementById('submitExpenseBtn');
-    if (btn) { btn.disabled = true; btn.textContent = `Saving ${entries.length} Expense(s)...`; }
-
-    try {
-        const params = new URLSearchParams({
-            action: entries.length > 1 ? 'addExpenseBulk' : 'addExpense',
-            adminEmail: currentAdminUser.email,
-            date: entries[0].date,
-            category: entries[0].category,
-            name: entries[0].name,
-            desc: entries[0].desc,
-            cost: entries[0].cost,
-            entriesJson: JSON.stringify(entries)
-        });
-
-        const res = await fetch(`${API_BASE_URL}?${params.toString()}`);
-        const json = await res.json();
-
-        const savedItems = (json && Array.isArray(json.items))
-            ? json.items
-            : (json && json.item ? [json.item] : []);
-
-        if (json && json.success && savedItems.length > 0) {
-            if (!Array.isArray(liveExpensesData)) liveExpensesData = [];
-            savedItems.forEach(it => liveExpensesData.push(it));
-            liveVaultData.expenses = liveExpensesData;
-            try {
-                localStorage.setItem('dasher_live_expenses_cache', JSON.stringify(liveExpensesData));
-                fetch(`${FIREBASE_DB_URL}/vault/expenses.json`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(liveExpensesData)
-                }).catch(() => {});
-            } catch (e) {}
-            renderItemizedLedger(cachedSummaryEarnings || 0, cachedSummaryGas || 0);
-            const totalSavedDollar = savedItems.reduce((acc, it) => acc + (Number(it.cost) || 0), 0);
-            showHqToast(`${savedItems.length} Expense(s) ($${totalSavedDollar.toFixed(2)}) added to Ledger!`);
-            resetExpenseFormClean();
-            closeAddDataModal();
-        } else {
-            showHqToast((json && json.error) || 'Could not save expense(s).', true);
-        }
-    } catch (err) {
-        console.error('Error submitting expense:', err);
-        showHqToast('Network error while saving expense(s).', true);
-    } finally {
-        if (btn) { btn.disabled = false; btn.textContent = '🎒 Save Expense(s) to Ledger'; }
-    }
 }
 
-async function submitRatingsForm(event) {
-    event.preventDefault();
-    if (!currentAdminUser) return openAdminAuthModal();
+function syncVaultToLocalAndFirebase() {
+    try {
+        localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData));
+        fetch(`${FIREBASE_DB_URL}/vault.json`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ ...liveVaultData, lastSynced: Date.now() })
+        }).catch(() => {});
+    } catch (e) {}
+}
 
-    const btn = document.getElementById('submitRatingsBtn');
-    if (btn) { btn.disabled = true; btn.textContent = 'Updating Ratings...'; }
+async function submitEndOfShift(event) {
+    if (event) event.preventDefault();
+    if (!currentAdminUser || !currentAdminUser.email) {
+        showHqToast('Please unlock Admin Access with your Google Account to save.', true);
+        return openAdminAuthModal();
+    }
+
+    const v = validateEosForm();
+    if (!v.valid) return;
+
+    const btn = document.getElementById('submitShiftBtn');
+    const prevLabel = btn ? btn.textContent : '🚀 Save Everything';
+    if (btn) {
+        btn.disabled = true;
+        btn.textContent = currentEosMode === 'edit' ? '⏳ Saving Changes...' : '⏳ Saving Everything...';
+    }
 
     try {
-        const payload = {
-            action: 'updateRatings',
-            adminEmail: currentAdminUser.email,
-            lifetime: document.getElementById('ratLifetimeInput').value,
-            customerRating: document.getElementById('ratCustomerInput').value,
-            overallRating: document.getElementById('ratOverallInput').value,
-            stars5: document.getElementById('rat5StarInput').value,
-            stars4: document.getElementById('rat4StarInput').value,
-            stars3: document.getElementById('rat3StarInput').value,
-            stars2: document.getElementById('rat2StarInput').value,
-            stars1: document.getElementById('rat1StarInput').value,
-            communication: document.getElementById('compCommInput').value,
-            orderHandling: document.getElementById('compHandlingInput').value,
-            instructions: document.getElementById('compInstrInput').value,
-            friendliness: document.getElementById('compFriendlyInput').value,
-            aboveBeyond: document.getElementById('compAboveInput').value
-        };
+        const calc = recalcShiftPreview();
+        const { miscAmount, miscCategory, miscNote } = collectMiscPaySummary();
 
-        const params = new URLSearchParams(payload);
+        if (currentEosMode === 'edit') {
+            const shiftId = document.getElementById('editShiftIdInput').value;
+            const year = document.getElementById('editShiftYearInput').value || String(calc.year);
+            const month = document.getElementById('editShiftMonthInput').value || calc.month;
+            const oldStart = document.getElementById('editShiftOldStartInput').value;
+
+            const params = new URLSearchParams({
+                action: 'editShift',
+                adminEmail: currentAdminUser.email,
+                id: shiftId,
+                oldStart: oldStart,
+                year: String(year),
+                month: month,
+                start: document.getElementById('shiftStartInput').value.replace('T', ' '),
+                end: document.getElementById('shiftEndInput').value.replace('T', ' '),
+                hours: calc.hours,
+                activeHours: document.getElementById('shiftActiveHoursInput').value,
+                miles: document.getElementById('shiftMilesInput').value,
+                deliveries: document.getElementById('shiftDeliveriesInput').value,
+                noTips: document.getElementById('shiftNoTipsInput').value || '0',
+                basePay: document.getElementById('shiftBasePayInput').value,
+                tips: document.getElementById('shiftTipsInput').value,
+                cashTips: document.getElementById('shiftCashTipsInput').value || '0',
+                miscAmount: String(miscAmount),
+                miscCategory: miscCategory,
+                miscNote: miscNote
+            });
+
+            const res = await fetch(`${API_BASE_URL}?${params.toString()}`);
+            const json = await res.json();
+            if (json && json.success && json.shift) {
+                const updated = json.shift;
+                const allShifts = Array.isArray(liveVaultData.shifts) ? liveVaultData.shifts : [];
+                const idx = allShifts.findIndex(s =>
+                    (shiftId && s.id && String(s.id).trim() === String(shiftId).trim()) ||
+                    (oldStart && s.start && String(s.start).trim() === String(oldStart).trim())
+                );
+                if (idx !== -1) allShifts[idx] = { ...allShifts[idx], ...updated };
+                else allShifts.push(updated);
+
+                if (json.updatedLifetime) {
+                    if (!liveVaultData.ratings) liveVaultData.ratings = {};
+                    liveVaultData.ratings.lifetime = Number(json.updatedLifetime);
+                    latestRatingsState.lifetime = Number(json.updatedLifetime);
+                }
+                syncVaultToLocalAndFirebase();
+                if (cachedRawCsvData) processData(cachedRawCsvData);
+                renderRecentShiftsSnapshot();
+                if (updated.month) {
+                    expandedMonths[updated.month] = true;
+                    renderMonthDrilldown(updated.month);
+                }
+                const reimbMsg = miscAmount > 0 ? ` (Reimbursements: $${miscAmount.toFixed(2)})` : '';
+                showHqToast(`Shift updated successfully!${reimbMsg}`);
+                closeAddDataModal();
+            } else {
+                showHqToast((json && json.error) || 'Failed to update shift.', true);
+            }
+            return;
+        }
+
+        // NEW END-OF-SHIFT OR GAS-ONLY BUNDLE
+        const bundle = {};
+        if (currentEosMode === 'shift') {
+            bundle.shift = {
+                year: String(calc.year),
+                month: calc.month,
+                start: document.getElementById('shiftStartInput').value,
+                end: document.getElementById('shiftEndInput').value,
+                hours: calc.hours,
+                activeHours: document.getElementById('shiftActiveHoursInput').value,
+                miles: document.getElementById('shiftMilesInput').value,
+                deliveries: document.getElementById('shiftDeliveriesInput').value,
+                noTips: document.getElementById('shiftNoTipsInput').value || '0',
+                basePay: document.getElementById('shiftBasePayInput').value,
+                tips: document.getElementById('shiftTipsInput').value,
+                cashTips: document.getElementById('shiftCashTipsInput').value || '0',
+                miscAmount: String(miscAmount),
+                miscCategory: miscCategory,
+                miscNote: miscNote
+            };
+        }
+        if (currentEosMode === 'gas' || (document.getElementById('eosToggleGas') || {}).checked) {
+            const gEntries = collectGasEntriesFromDom();
+            if (gEntries.length > 0) bundle.gas = gEntries;
+        }
+        if (currentEosMode === 'shift' && (document.getElementById('eosToggleExpense') || {}).checked) {
+            const eEntries = collectExpenseEntriesFromDom();
+            if (eEntries.length > 0) bundle.expenses = eEntries;
+        }
+        let ratingsPayload = null;
+        if (currentEosMode === 'shift' && (document.getElementById('eosToggleRatings') || {}).checked) {
+            ratingsPayload = {
+                lifetime: document.getElementById('ratLifetimeInput').value,
+                customerRating: document.getElementById('ratCustomerInput').value,
+                overallRating: document.getElementById('ratOverallInput').value,
+                stars5: document.getElementById('rat5StarInput').value,
+                stars4: document.getElementById('rat4StarInput').value,
+                stars3: document.getElementById('rat3StarInput').value,
+                stars2: document.getElementById('rat2StarInput').value,
+                stars1: document.getElementById('rat1StarInput').value,
+                communication: document.getElementById('compCommInput').value,
+                orderHandling: document.getElementById('compHandlingInput').value,
+                instructions: document.getElementById('compInstrInput').value,
+                friendliness: document.getElementById('compFriendlyInput').value,
+                aboveBeyond: document.getElementById('compAboveInput').value
+            };
+            bundle.ratings = ratingsPayload;
+        }
+
+        const params = new URLSearchParams({
+            action: 'saveShiftBundle',
+            adminEmail: currentAdminUser.email,
+            bundleJson: JSON.stringify(bundle)
+        });
         const res = await fetch(`${API_BASE_URL}?${params.toString()}`);
         const json = await res.json();
 
-        if (json && json.success) {
+        const summaryParts = [];
+        const failedParts = [];
+
+        if (json && json.shift && json.shift.success && json.shift.shift) {
+            const sObj = json.shift.shift;
+            liveVaultData.shifts.push(sObj);
+            if (!liveVaultData.years.includes(sObj.year)) liveVaultData.years.push(sObj.year);
+            expandedMonths[sObj.month] = true;
+            if (json.shift.updatedLifetime) {
+                if (!liveVaultData.ratings) liveVaultData.ratings = {};
+                liveVaultData.ratings.lifetime = Number(json.shift.updatedLifetime);
+                latestRatingsState.lifetime = Number(json.shift.updatedLifetime);
+            } else if (Number(sObj.deliveries) > 0) {
+                const newLife = (latestRatingsState.lifetime || 1318) + Number(sObj.deliveries);
+                if (!liveVaultData.ratings) liveVaultData.ratings = {};
+                liveVaultData.ratings.lifetime = newLife;
+                latestRatingsState.lifetime = newLife;
+            }
+            summaryParts.push(`Shift $${Number(sObj.total).toFixed(2)}`);
+        } else if (bundle.shift) {
+            failedParts.push('Shift');
+        }
+
+        if (json && json.gas && json.gas.success && Array.isArray(json.gas.gasItems)) {
+            json.gas.gasItems.forEach(g => {
+                liveVaultData.gas.push(g);
+                if (!liveVaultData.years.includes(g.year)) liveVaultData.years.push(g.year);
+                expandedMonths[g.month] = true;
+            });
+            summaryParts.push(`${json.gas.gasItems.length} Gas`);
+        } else if (bundle.gas) {
+            failedParts.push('Gas');
+        }
+
+        if (json && json.expenses && json.expenses.success && Array.isArray(json.expenses.items)) {
+            if (!Array.isArray(liveExpensesData)) liveExpensesData = [];
+            json.expenses.items.forEach(it => liveExpensesData.push(it));
+            liveVaultData.expenses = liveExpensesData;
+            try { localStorage.setItem('dasher_live_expenses_cache', JSON.stringify(liveExpensesData)); } catch (e) {}
+            renderItemizedLedger(cachedSummaryEarnings || 0, cachedSummaryGas || 0);
+            summaryParts.push(`${json.expenses.items.length} Expense(s)`);
+        } else if (bundle.expenses) {
+            failedParts.push('Expenses');
+        }
+
+        if (json && json.ratings && json.ratings.success && ratingsPayload) {
             renderRatings(
                 ['LifeTime Deliveries', 'Customer Rating', 'Overall Dasher Rating', '5 stars', '4 stars', '3 stars', '2 stars', '1 star'],
-                [payload.lifetime, payload.customerRating, payload.overallRating, payload.stars5, payload.stars4, payload.stars3, payload.stars2, payload.stars1]
+                [ratingsPayload.lifetime, ratingsPayload.customerRating, ratingsPayload.overallRating, ratingsPayload.stars5, ratingsPayload.stars4, ratingsPayload.stars3, ratingsPayload.stars2, ratingsPayload.stars1]
             );
             renderFeedback(
                 ['Communication', 'order handling', 'followed delivery instuctions', 'Friendliness', 'Above & Beyond'],
-                [payload.communication, payload.orderHandling, payload.instructions, payload.friendliness, payload.aboveBeyond]
+                [ratingsPayload.communication, ratingsPayload.orderHandling, ratingsPayload.instructions, ratingsPayload.friendliness, ratingsPayload.aboveBeyond]
             );
-            showHqToast('Platinum Dasher Ratings & Compliments updated!');
+            summaryParts.push('Ratings');
+        } else if (bundle.ratings) {
+            failedParts.push('Ratings');
+        }
+
+        if (summaryParts.length > 0) {
+            syncVaultToLocalAndFirebase();
+            renderVaultYearSelectorPills();
+            if (currentVaultYear !== 'all' && bundle.shift && Number(currentVaultYear) === Number(bundle.shift.year) && Number(bundle.shift.year) !== 2026) {
+                renderVaultYearFromRecords(Number(bundle.shift.year));
+            } else if (cachedRawCsvData) {
+                processData(cachedRawCsvData);
+            }
+            renderRecentShiftsSnapshot();
+        }
+
+        if (json && json.success && failedParts.length === 0) {
+            showHqToast(`Saved ${summaryParts.join(' + ')} to Vault!`);
+            resetEndOfShiftAll(true);
             closeAddDataModal();
         } else {
-            showHqToast((json && json.error) || 'Could not update ratings.', true);
+            const errTxt = (json && json.error) || `Partial or failed save (${failedParts.join(', ')})`;
+            showHqToast(errTxt, true);
         }
     } catch (err) {
-        console.error('Error updating ratings:', err);
-        showHqToast('Network error while updating ratings.', true);
+        console.error('Error saving End-of-Shift bundle:', err);
+        showHqToast('Network error while saving.', true);
     } finally {
-        if (btn) { btn.disabled = false; btn.textContent = '⭐ Save Ratings & Compliments'; }
+        if (btn) {
+            btn.disabled = false;
+            btn.textContent = prevLabel;
+        }
     }
 }
 
 /* ==========================================================================
-   1-CLICK EDIT SHIFT & REIMBURSEMENTS ENGINE (v5.1.0)
+   UNIFIED EDIT SHIFT ENTRYPOINT (v6.0.0) — reuses #addDataModalOverlay
    ========================================================================== */
 
 function parseToIsoDateTimeLocal(str) {
     if (!str) return '';
     const clean = String(str).trim();
-    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(clean)) {
-        return clean.slice(0, 16);
-    }
-    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(clean)) {
-        return clean.replace(' ', 'T').slice(0, 16);
-    }
+    if (/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/.test(clean)) return clean.slice(0, 16);
+    if (/^\d{4}-\d{2}-\d{2}\s+\d{2}:\d{2}/.test(clean)) return clean.replace(' ', 'T').slice(0, 16);
     const mdy = clean.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})(?:\s+(\d{1,2}):(\d{2})(?::(\d{2}))?(?:\s*(AM|PM))?)?/i);
     if (mdy) {
         const month = mdy[1].padStart(2, '0');
@@ -2923,8 +3460,7 @@ function parseToIsoDateTimeLocal(str) {
         const ampm = mdy[7] ? mdy[7].toUpperCase() : null;
         if (ampm === 'PM' && hours < 12) hours += 12;
         if (ampm === 'AM' && hours === 12) hours = 0;
-        const hrStr = String(hours).padStart(2, '0');
-        return `${year}-${month}-${day}T${hrStr}:${minutes}`;
+        return `${year}-${month}-${day}T${String(hours).padStart(2, '0')}:${minutes}`;
     }
     const d = new Date(clean.replace(' ', 'T'));
     if (!isNaN(d.getTime())) {
@@ -2932,6 +3468,16 @@ function parseToIsoDateTimeLocal(str) {
         return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
     }
     return '';
+}
+
+function collectEditMiscPaySummary() {
+    const s = collectMiscRowsSummary('#miscPayRowsContainer', 'Reimbursement');
+    if (!s.miscCategory && s.miscAmount > 0) s.miscCategory = 'Reimbursement';
+    return s;
+}
+
+function closeEditShiftModal() {
+    closeAddDataModal();
 }
 
 function openEditShiftModal(shiftId, startStr) {
@@ -2947,272 +3493,43 @@ function openEditShiftModal(shiftId, startStr) {
         return;
     }
 
-    document.getElementById('editShiftIdInput').value = shift.id || '';
-    document.getElementById('editShiftYearInput').value = shift.year || 2026;
-    document.getElementById('editShiftMonthInput').value = shift.month || '';
-    document.getElementById('editShiftOldStartInput').value = shift.start || '';
+    clearEosValidation();
+    setEosMode('edit');
 
-    const startIso = parseToIsoDateTimeLocal(shift.start);
-    const endIso = parseToIsoDateTimeLocal(shift.end);
-    document.getElementById('editShiftStartInput').value = startIso;
-    document.getElementById('editShiftEndInput').value = endIso;
+    const setVal = (id, v) => { const el = document.getElementById(id); if (el) el.value = v; };
+    setVal('editShiftIdInput', shift.id || '');
+    setVal('editShiftYearInput', shift.year || 2026);
+    setVal('editShiftMonthInput', shift.month || '');
+    setVal('editShiftOldStartInput', shift.start || '');
 
-    document.getElementById('editShiftActiveHoursInput').value = shift.activeHours || shift.hours || '0:00';
-    document.getElementById('editShiftMilesInput').value = shift.miles !== undefined ? Number(shift.miles) : '';
-    document.getElementById('editShiftDeliveriesInput').value = shift.deliveries !== undefined ? Number(shift.deliveries) : '';
-    document.getElementById('editShiftNoTipsInput').value = shift.noTips !== undefined ? Number(shift.noTips) : 0;
+    setVal('shiftStartInput', parseToIsoDateTimeLocal(shift.start));
+    setVal('shiftEndInput', parseToIsoDateTimeLocal(shift.end));
+    setVal('shiftActiveHoursInput', shift.activeHours || shift.hours || '0:00');
+    setVal('shiftMilesInput', shift.miles !== undefined ? Number(shift.miles) : '');
+    setVal('shiftDeliveriesInput', shift.deliveries !== undefined ? Number(shift.deliveries) : '');
+    setVal('shiftNoTipsInput', shift.noTips !== undefined ? Number(shift.noTips) : 0);
 
-    document.getElementById('editShiftBasePayInput').value = shift.basePay !== undefined ? Number(shift.basePay).toFixed(2) : '';
-    document.getElementById('editShiftTipsInput').value = shift.tips !== undefined ? Number(shift.tips).toFixed(2) : '';
-    document.getElementById('editShiftCashTipsInput').value = shift.cashTips !== undefined ? Number(shift.cashTips).toFixed(2) : '0.00';
+    setVal('shiftBasePayInput', shift.basePay !== undefined ? Number(shift.basePay).toFixed(2) : '');
+    setVal('shiftTipsInput', shift.tips !== undefined ? Number(shift.tips).toFixed(2) : '');
+    setVal('shiftCashTipsInput', shift.cashTips !== undefined ? Number(shift.cashTips).toFixed(2) : '0.00');
 
-    // Populate Reimbursements & Misc Rows (v5.2.0: restores per-item dates)
-    const container = document.getElementById('editMiscPayRowsContainer');
+    const container = document.getElementById('miscPayRowsContainer');
     if (container) {
         container.innerHTML = '';
         const parsedRows = parseMiscNoteToRows(shift.miscNote, shift.miscCategory, shift.miscAmount);
         if (parsedRows.length > 0) {
-            parsedRows.forEach(p => addEditMiscPayRow(p.cat || '💵 Reimbursement', p.amount || 0, p.note, displayDateToIso(p.date)));
+            parsedRows.forEach(p => addMiscPayRow(p.cat || '💵 Reimbursement', p.amount || 0, p.note, displayDateToIso(p.date)));
         } else {
-            addEditMiscPayRow('💵 Reimbursement', 0, '', '');
+            addMiscPayRow('💵 Reimbursement', 0, '', '');
         }
     }
 
-    const badge = document.getElementById('editShiftIdBadge');
-    if (badge) {
-        badge.textContent = shift.id ? `ID: ${shift.id}` : `Date: ${shift.start || ''}`;
-    }
-    const targetBadge = document.getElementById('editShiftVaultTargetBadge');
-    if (targetBadge) {
-        targetBadge.textContent = `🏛️ Target: ${shift.month || ''} ${shift.year || 2026} Vault`;
-    }
+    const badge = document.getElementById('eosModeBadge');
+    if (badge) badge.textContent = shift.id ? `ID: ${shift.id}` : `Date: ${shift.start || ''}`;
 
-    recalcEditShiftPreview();
+    ['time', 'earn', 'misc'].forEach(s => setEosCardCollapsed(s, false));
+    recalcShiftPreview();
 
-    const overlay = document.getElementById('editShiftModalOverlay');
-    if (overlay) {
-        overlay.style.display = 'flex';
-    }
-}
-
-function closeEditShiftModal() {
-    const overlay = document.getElementById('editShiftModalOverlay');
-    if (overlay) {
-        overlay.style.display = 'none';
-    }
-}
-
-function addEditMiscPayRow(initialType, initialAmount, initialNote, initialIsoDate) {
-    const container = document.getElementById('editMiscPayRowsContainer');
-    if (!container) return;
-    const row = document.createElement('div');
-    row.className = 'misc-pay-row';
-    const typeVal = initialType || '💵 Reimbursement';
-    const amtVal = (initialAmount !== undefined && initialAmount !== null) ? Number(initialAmount).toFixed(2) : '0.00';
-    const noteVal = initialNote || '';
-    const hasOwnDate = /^\d{4}-\d{2}-\d{2}$/.test(String(initialIsoDate || ''));
-    const dateVal = hasOwnDate ? initialIsoDate : getEditFormDefaultIsoDate();
-
-    row.innerHTML = `
-        <div class="hq-field-group">
-            <label>Misc Type Dropdown</label>
-            <select class="hq-select misc-type-select" onchange="recalcEditShiftPreview()">
-                <option value="💵 Reimbursement" ${typeVal.indexOf('Reimbursement') !== -1 ? 'selected' : ''}>💵 Reimbursement (Closed Store / Half-Pay)</option>
-                <option value="⚡ Peak Pay / Bonus" ${typeVal.indexOf('Peak') !== -1 || typeVal.indexOf('Bonus') !== -1 ? 'selected' : ''}>⚡ Peak Pay / Challenge Bonus</option>
-                <option value="📦 Extra Delivery Fee" ${typeVal.indexOf('Extra') !== -1 ? 'selected' : ''}>📦 Extra Delivery Fee</option>
-                <option value="🎉 Other Misc Pay" ${typeVal.indexOf('Other') !== -1 ? 'selected' : ''}>🎉 Other Misc Pay</option>
-            </select>
-        </div>
-        <div class="hq-field-group">
-            <label>📅 Date</label>
-            <input type="date" class="hq-input misc-date-input" value="${dateVal}" ${hasOwnDate ? 'data-touched="1"' : ''} oninput="this.dataset.touched='1'; recalcEditShiftPreview()">
-        </div>
-        <div class="hq-field-group">
-            <label>Misc Amount ($)</label>
-            <input type="number" step="0.01" min="0" class="hq-input misc-amount-input" value="${amtVal}" placeholder="0.00" oninput="recalcEditShiftPreview()">
-        </div>
-        <div class="hq-field-group misc-note-group">
-            <label>Misc Reason / Note</label>
-            <input type="text" class="hq-input misc-note-input" value="${escapeHtml(noteVal)}" placeholder="e.g. Closed store half-pay ($6.75) or cancelled order" oninput="recalcEditShiftPreview()">
-        </div>
-        <button type="button" class="remove-misc-row-btn" onclick="this.parentElement.remove(); recalcEditShiftPreview();" title="Remove Item">&times;</button>
-    `;
-    container.appendChild(row);
-    recalcEditShiftPreview();
-}
-
-function collectEditMiscPaySummary() {
-    const s = collectMiscRowsSummary('#editMiscPayRowsContainer', 'Reimbursement');
-    if (!s.miscCategory && s.miscAmount > 0) s.miscCategory = 'Reimbursement';
-    return s;
-}
-
-function recalcEditShiftPreview() {
-    const startVal = document.getElementById('editShiftStartInput').value;
-    const endVal = document.getElementById('editShiftEndInput').value;
-    const sDate = new Date(startVal);
-    const eDate = new Date(endVal);
-
-    let totalHrs = 0;
-    let totalHrsStr = '0:00';
-    if (!isNaN(sDate.getTime()) && !isNaN(eDate.getTime()) && eDate > sDate) {
-        const diffMs = eDate.getTime() - sDate.getTime();
-        totalHrs = diffMs / 3600000;
-        const hrs = Math.floor(totalHrs);
-        const mins = Math.round((totalHrs - hrs) * 60);
-        totalHrsStr = `${hrs}:${mins < 10 ? '0' + mins : mins}`;
-    }
-    const hint = document.getElementById('editShiftTotalHrsHint');
-    if (hint) hint.textContent = `Total: ${totalHrsStr}`;
-    syncUntouchedMiscDates('#editMiscPayRowsContainer', getEditFormDefaultIsoDate());
-
-    const activeHoursStr = document.getElementById('editShiftActiveHoursInput').value || totalHrsStr;
-    const activeHrsFloat = parseHoursToNumber(activeHoursStr) || totalHrs || 1;
-
-    const basePay = parseFloat(document.getElementById('editShiftBasePayInput').value) || 0;
-    const tips = parseFloat(document.getElementById('editShiftTipsInput').value) || 0;
-    const cashTips = parseFloat(document.getElementById('editShiftCashTipsInput').value) || 0;
-    const miles = parseFloat(document.getElementById('editShiftMilesInput').value) || 0;
-
-    const { miscAmount } = collectEditMiscPaySummary();
-
-    const grossTotal = basePay + tips + cashTips + miscAmount;
-    const hourlyRate = activeHrsFloat > 0 ? (grossTotal / activeHrsFloat) : 0;
-    const taxes = grossTotal * 0.30;
-    const deduction = miles * 0.67;
-
-    const elTotal = document.getElementById('previewEditShiftTotal');
-    const elHourly = document.getElementById('previewEditShiftHourly');
-    const elTaxes = document.getElementById('previewEditShiftTaxes');
-    const elDeduct = document.getElementById('previewEditShiftDeduction');
-
-    if (elTotal) elTotal.textContent = `$${grossTotal.toFixed(2)}`;
-    if (elHourly) elHourly.textContent = `$${hourlyRate.toFixed(2)} / hr`;
-    if (elTaxes) elTaxes.textContent = `$${taxes.toFixed(2)}`;
-    if (elDeduct) elDeduct.textContent = `$${deduction.toFixed(2)}`;
-}
-
-async function submitEditShiftForm(event) {
-    if (event) event.preventDefault();
-
-    if (!currentAdminUser || !currentAdminUser.email) {
-        showHqToast('Please unlock Admin Access with your Google Account to edit shifts.', true);
-        openAdminAuthModal();
-        return;
-    }
-
-    const btn = document.getElementById('submitEditShiftBtn');
-    if (btn) {
-        btn.disabled = true;
-        btn.textContent = '⏳ Saving Changes...';
-    }
-
-    try {
-        const shiftId = document.getElementById('editShiftIdInput').value;
-        const year = document.getElementById('editShiftYearInput').value || '2026';
-        const month = document.getElementById('editShiftMonthInput').value || '';
-        const oldStart = document.getElementById('editShiftOldStartInput').value;
-
-        const startVal = document.getElementById('editShiftStartInput').value.replace('T', ' ');
-        const endVal = document.getElementById('editShiftEndInput').value.replace('T', ' ');
-        const activeHoursVal = document.getElementById('editShiftActiveHoursInput').value;
-        const milesVal = document.getElementById('editShiftMilesInput').value;
-        const deliveriesVal = document.getElementById('editShiftDeliveriesInput').value;
-        const noTipsVal = document.getElementById('editShiftNoTipsInput').value || '0';
-        const basePayVal = document.getElementById('editShiftBasePayInput').value;
-        const tipsVal = document.getElementById('editShiftTipsInput').value;
-        const cashTipsVal = document.getElementById('editShiftCashTipsInput').value || '0';
-
-        const { miscAmount, miscCategory, miscNote } = collectEditMiscPaySummary();
-
-        // Calculate hours formatted
-        const sDate = new Date(document.getElementById('editShiftStartInput').value);
-        const eDate = new Date(document.getElementById('editShiftEndInput').value);
-        let hoursFormatted = '';
-        if (!isNaN(sDate.getTime()) && !isNaN(eDate.getTime())) {
-            const diffMs = Math.max(0, eDate.getTime() - sDate.getTime());
-            const hrs = Math.floor(diffMs / 3600000);
-            const mins = Math.round((diffMs % 3600000) / 60000);
-            hoursFormatted = `${hrs}:${mins < 10 ? '0' + mins : mins}`;
-        }
-
-        const params = new URLSearchParams({
-            action: 'editShift',
-            adminEmail: currentAdminUser.email,
-            id: shiftId,
-            oldStart: oldStart,
-            year: String(year),
-            month: month,
-            start: startVal,
-            end: endVal,
-            hours: hoursFormatted,
-            activeHours: activeHoursVal,
-            miles: milesVal,
-            deliveries: deliveriesVal,
-            noTips: noTipsVal,
-            basePay: basePayVal,
-            tips: tipsVal,
-            cashTips: cashTipsVal,
-            miscAmount: String(miscAmount),
-            miscCategory: miscCategory,
-            miscNote: miscNote
-        });
-
-        const res = await fetch(`${API_BASE_URL}?${params.toString()}`);
-        const json = await res.json();
-
-        if (json && json.success && json.shift) {
-            const updated = json.shift;
-            const allShifts = Array.isArray(liveVaultData.shifts) ? liveVaultData.shifts : [];
-            const idx = allShifts.findIndex(s => {
-                if (shiftId && s.id && String(s.id).trim() === String(shiftId).trim()) return true;
-                if (oldStart && s.start && String(s.start).trim() === String(oldStart).trim()) return true;
-                return false;
-            });
-
-            if (idx !== -1) {
-                allShifts[idx] = { ...allShifts[idx], ...updated };
-            } else {
-                allShifts.push(updated);
-            }
-
-            if (json.updatedLifetime) {
-                if (!liveVaultData.ratings) liveVaultData.ratings = {};
-                liveVaultData.ratings.lifetime = Number(json.updatedLifetime);
-                latestRatingsState.lifetime = Number(json.updatedLifetime);
-            }
-
-            try {
-                localStorage.setItem(VAULT_CACHE_KEY, JSON.stringify(liveVaultData));
-                fetch(`${FIREBASE_DB_URL}/vault.json`, {
-                    method: 'PUT',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ ...liveVaultData, lastSynced: Date.now() })
-                }).catch(() => {});
-            } catch (e) {}
-
-            if (cachedRawCsvData) {
-                processData(cachedRawCsvData);
-            }
-            renderRecentShiftsSnapshot();
-            if (updated.month) {
-                expandedMonths[updated.month] = true;
-                renderMonthDrilldown(updated.month);
-            }
-
-            const reimbMsg = miscAmount > 0 ? ` (Reimbursements: $${miscAmount.toFixed(2)})` : '';
-            showHqToast(`Shift updated successfully!${reimbMsg}`);
-            closeEditShiftModal();
-        } else {
-            showHqToast((json && json.error) || 'Failed to update shift.', true);
-        }
-    } catch (err) {
-        console.error('Error updating shift:', err);
-        showHqToast('Error updating shift: ' + (err && err.message ? err.message : err), true);
-    } finally {
-        if (btn) {
-            btn.disabled = false;
-            btn.textContent = '💾 Save Shift Changes';
-        }
-    }
+    const overlay = document.getElementById('addDataModalOverlay');
+    if (overlay) overlay.style.display = 'flex';
 }

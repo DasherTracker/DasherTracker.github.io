@@ -10,7 +10,7 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Outfit:wght@300;400;500;600;700&family=Plus+Jakarta+Sans:wght@500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="styles.css?v=5.2.0">
+    <link rel="stylesheet" href="styles.css?v=6.0.0">
     <!-- PapaParse for CSV parsing -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
     <!-- Chart.js for data visualization -->
@@ -66,8 +66,9 @@
                         <button type="button" class="admin-signout-mini" onclick="signOutAdmin()" title="Lock Admin Menu">Lock</button>
                     </div>
                     <button type="button" id="openAddDataModalBtn" class="add-data-cta-btn" onclick="openAddDataModal('shift')">
-                        <span class="plus-icon">＋</span> Log Shift / Add Data
+                        <span class="plus-icon">＋</span> End-of-Shift Log
                     </button>
+                    <button type="button" id="openGasOnlyBtn" class="add-data-cta-btn eos-gas-quick-btn" onclick="openAddDataModal('gas')" title="Log gas only (no shift)">⛽</button>
                 </div>
 
                 <button id="refreshBtn" class="refresh-btn" onclick="fetchDashboardData()" title="Fetch latest Multi-Year Vault & Firebase data">
@@ -76,7 +77,7 @@
             </div>
         </header>
 
-        <!-- CLEAN 4-TAB WORKSPACE NAVIGATION DOCK (v5.1.0) -->
+        <!-- CLEAN 4-TAB WORKSPACE NAVIGATION DOCK (v6.0.0) -->
         <nav class="workspace-nav-dock" id="workspaceNavDock" aria-label="Dashboard Workspace Sections">
             <button type="button" class="workspace-tab-btn active" id="wsTabBtnOverview" data-ws-tab="overview" onclick="switchWorkspaceTab('overview')">
                 <span class="ws-tab-icon">📊</span>
@@ -569,7 +570,7 @@
 
         <!-- FOOTER -->
         <footer class="dashboard-footer">
-            <p>Dasher Tracker HQ <span class="version-badge">v5.2.0</span> • Multi-Year Delivery Vault &amp; Tax Intelligence</p>
+            <p>Dasher Tracker HQ <span class="version-badge">v6.0.0</span> • Multi-Year Delivery Vault &amp; Tax Intelligence</p>
         </footer>
     </main>
 
@@ -607,35 +608,51 @@
     </div>
 
     <!-- ==========================================================================
-         MODAL 2: + ADD DATA TO VAULT COMMAND CENTER (4-IN-1 HUB)
+         MODAL 2: END-OF-SHIFT LOG (v6.0.0) — one form, one Save Everything
+         Modes: new shift | gas-only | edit shift (same form, single source of truth)
          ========================================================================== -->
     <div id="addDataModalOverlay" class="hq-modal-overlay" style="display: none;" onclick="if(event.target===this) closeAddDataModal()">
-        <div class="hq-modal-card add-data-modal-card" role="dialog" aria-modal="true" aria-labelledby="addDataModalTitle">
+        <div class="hq-modal-card add-data-modal-card eos-modal-card" role="dialog" aria-modal="true" aria-labelledby="addDataModalTitle" data-eos-mode="shift">
             <div class="hq-modal-header">
                 <div class="hq-modal-title-group">
-                    <span class="hq-modal-icon">⚡</span>
+                    <span class="hq-modal-icon" id="eosModalIcon">⚡</span>
                     <div>
-                        <h3 id="addDataModalTitle">Add Data to Multi-Year Vault</h3>
-                        <p class="hq-modal-sub">Automatically routes by Date & Year into your Firebase & Google Sheet Vault</p>
+                        <h3 id="addDataModalTitle">End-of-Shift Log</h3>
+                        <p class="hq-modal-sub" id="eosModalSub">Fill in what you have — everything saves together in one tap</p>
                     </div>
                 </div>
                 <div class="hq-modal-header-right">
-                    <span class="admin-modal-badge">🔓 Admin Verified</span>
+                    <span class="eos-draft-pill" id="eosDraftPill" style="display:none;">💾 Draft saved</span>
+                    <span class="admin-modal-badge" id="eosModeBadge">🔓 Admin Verified</span>
                     <button type="button" class="hq-modal-close" onclick="closeAddDataModal()" aria-label="Close">&times;</button>
                 </div>
             </div>
 
-            <!-- 4-TAB NAVIGATION -->
-            <div class="hq-modal-tabs" role="tablist">
-                <button type="button" class="hq-tab-btn active" id="hqTabBtnShift" onclick="switchAddDataTab('shift')">🚗 Log Dash Shift</button>
-                <button type="button" class="hq-tab-btn" id="hqTabBtnGas" onclick="switchAddDataTab('gas')">⛽ Log Gas Fill-Up</button>
-                <button type="button" class="hq-tab-btn" id="hqTabBtnExpense" onclick="switchAddDataTab('expense')">🎒 Gear & Upkeep</button>
-                <button type="button" class="hq-tab-btn" id="hqTabBtnRatings" onclick="switchAddDataTab('ratings')">⭐ Update Ratings</button>
-            </div>
+            <form id="eosForm" class="eos-layout" novalidate onsubmit="submitEndOfShift(event)" oninput="onEosFormInput()" onchange="onEosFormInput()">
+                <input type="hidden" id="editShiftIdInput">
+                <input type="hidden" id="editShiftYearInput">
+                <input type="hidden" id="editShiftMonthInput">
+                <input type="hidden" id="editShiftOldStartInput">
 
-            <div class="hq-modal-body">
-                <!-- TAB 1: LOG DASH SHIFT -->
-                <form id="hqFormShift" class="hq-tab-pane active" onsubmit="submitShiftForm(event)">
+                <!-- STEP RAIL (sticky left on desktop, top strip on mobile) -->
+                <nav class="eos-rail" aria-label="Sections">
+                    <button type="button" class="eos-rail-step" data-target="time" onclick="eosJumpTo('time')"><span class="eos-step-dot">1</span><span>Time &amp; Distance</span></button>
+                    <button type="button" class="eos-rail-step" data-target="earn" onclick="eosJumpTo('earn')"><span class="eos-step-dot">2</span><span>Earnings</span></button>
+                    <button type="button" class="eos-rail-step" data-target="misc" onclick="eosJumpTo('misc')"><span class="eos-step-dot">3</span><span>Reimb. &amp; Bonuses</span></button>
+                    <button type="button" class="eos-rail-step" data-target="gas" onclick="eosJumpTo('gas')"><span class="eos-step-dot">4</span><span>Gas</span></button>
+                    <button type="button" class="eos-rail-step" data-target="expense" onclick="eosJumpTo('expense')"><span class="eos-step-dot">5</span><span>Expenses</span></button>
+                    <button type="button" class="eos-rail-step" data-target="ratings" onclick="eosJumpTo('ratings')"><span class="eos-step-dot">6</span><span>Ratings</span></button>
+                </nav>
+
+            <div class="hq-modal-body eos-body" id="eosBody">
+                <div id="hqFormShift">
+                  <section class="eos-card" id="eosSecTime" data-sec="time">
+                    <button type="button" class="eos-card-head" onclick="toggleEosCard('time')">
+                        <span class="eos-card-title">🕐 Time &amp; Distance</span>
+                        <span class="eos-chip" id="eosChipTime"></span>
+                        <span class="eos-caret">▾</span>
+                    </button>
+                    <div class="eos-card-body">
                     <div class="hq-form-grid-3">
                         <div class="hq-field-group">
                             <label for="shiftStartInput">Start Date & Time</label>
@@ -665,7 +682,16 @@
                             <input type="number" step="1" min="0" id="shiftNoTipsInput" class="hq-input" value="0" oninput="recalcShiftPreview()">
                         </div>
                     </div>
+                    </div>
+                  </section>
 
+                  <section class="eos-card" id="eosSecEarn" data-sec="earn">
+                    <button type="button" class="eos-card-head" onclick="toggleEosCard('earn')">
+                        <span class="eos-card-title">💰 Earnings</span>
+                        <span class="eos-chip" id="eosChipEarn"></span>
+                        <span class="eos-caret">▾</span>
+                    </button>
+                    <div class="eos-card-body">
                     <div class="hq-form-grid-3">
                         <div class="hq-field-group">
                             <label for="shiftBasePayInput">Base Pay ($)</label>
@@ -680,8 +706,17 @@
                             <input type="number" step="0.01" min="0" id="shiftCashTipsInput" class="hq-input" value="0.00" oninput="recalcShiftPreview()">
                         </div>
                     </div>
+                    </div>
+                  </section>
 
-                    <!-- DEDICATED MISC / EXTRA PAY BREAKDOWN SECTION (DROPDOWN + NOTE) -->
+                  <section class="eos-card" id="eosSecMisc" data-sec="misc">
+                    <button type="button" class="eos-card-head" onclick="toggleEosCard('misc')">
+                        <span class="eos-card-title">💵 Reimbursements &amp; Bonuses</span>
+                        <span class="eos-chip" id="eosChipMisc"></span>
+                        <span class="eos-caret">▾</span>
+                    </button>
+                    <div class="eos-card-body">
+                    <!-- DEDICATED MISC / EXTRA PAY BREAKDOWN SECTION (DROPDOWN + DATE + NOTE) -->
                     <div class="misc-pay-subcard">
                         <div class="misc-pay-header">
                             <div class="misc-pay-title-wrap">
@@ -721,378 +756,283 @@
                             </div>
                         </div>
                     </div>
-
-                    <!-- LIVE AUTO-CALCULATED FORMULA PREVIEW BAR -->
-                    <div class="hq-live-preview-bar">
-                        <div class="preview-metric">
-                            <span class="preview-label">💰 Shift Gross Total</span>
-                            <span class="preview-val emerald" id="previewShiftTotal">$0.00</span>
-                        </div>
-                        <div class="preview-metric">
-                            <span class="preview-label">⚡ Active Hourly Rate</span>
-                            <span class="preview-val cyan" id="previewShiftHourly">$0.00 / hr</span>
-                        </div>
-                        <div class="preview-metric">
-                            <span class="preview-label">🧾 30% Tax Set-Aside</span>
-                            <span class="preview-val amber" id="previewShiftTaxes">$0.00</span>
-                        </div>
-                        <div class="preview-metric">
-                            <span class="preview-label">🛡️ IRS Mileage Write-Off</span>
-                            <span class="preview-val purple" id="previewShiftDeduction">$0.00</span>
-                        </div>
                     </div>
+                  </section>
+                </div>
 
-                    <div class="hq-modal-footer">
-                        <span class="vault-target-indicator" id="shiftVaultTargetBadge">🏛️ Target: 2026 Vault</span>
-                        <div class="hq-footer-btn-group">
-                            <button type="button" id="clearShiftFormBtn" class="hq-clear-btn" onclick="resetShiftFormClean()">🧹 Clear / New Shift</button>
-                            <button type="submit" id="submitShiftBtn" class="hq-submit-btn">🚀 Save Shift to Vault</button>
-                        </div>
+                <!-- SECTION 4: GAS FILL-UP (OPTIONAL TOGGLE) -->
+                <section class="eos-card collapsed" id="eosSecGas" data-sec="gas">
+                    <div class="eos-card-head" onclick="if(event.target.tagName!=='INPUT') toggleEosCard('gas')">
+                        <span class="eos-card-title">⛽ Gas Fill-Up</span>
+                        <span class="eos-chip" id="eosChipGas">Optional — off</span>
+                        <label class="eos-switch-label" onclick="event.stopPropagation()">
+                            <input type="checkbox" id="eosToggleGas" onchange="onEosToggleSection('gas', this.checked)">
+                            <span>Did you get gas?</span>
+                        </label>
+                        <span class="eos-caret">▾</span>
                     </div>
-                </form>
-
-                <!-- TAB 2: LOG GAS FILL-UP (SINGLE OR BULK MULTI-ROW BUILDER) -->
-                <form id="hqFormGas" class="hq-tab-pane" style="display: none;" onsubmit="submitGasForm(event)">
-                    <div class="bulk-entry-subcard gas-bulk-subcard">
-                        <div class="misc-pay-header">
-                            <div class="misc-pay-title-wrap">
-                                <span class="misc-badge-icon">⛽</span>
-                                <div>
-                                    <h4>Gas Fill-Up Log (Single or Bulk Entry)</h4>
-                                    <p>Enter one fill-up or click <strong>+ Add Gas Row</strong> / <strong>+ Add 5 Rows</strong> to log multiple gas receipts at once</p>
+                    <div class="eos-card-body" id="hqFormGas">
+                        <div class="bulk-entry-subcard gas-bulk-subcard">
+                            <div class="misc-pay-header">
+                                <div class="misc-pay-title-wrap">
+                                    <span class="misc-badge-icon">⛽</span>
+                                    <div>
+                                        <h4>Gas Fill-Up Log (Single or Bulk Entry)</h4>
+                                        <p>Enter one fill-up or click <strong>+ Add Gas Row</strong> / <strong>+ Add 5 Rows</strong> to log multiple gas receipts at once</p>
+                                    </div>
+                                </div>
+                                <div class="bulk-header-actions">
+                                    <div class="station-quick-chips" title="Click to fill Station on active gas row">
+                                        <button type="button" class="station-chip" onclick="setGasStation('Costco')">Costco</button>
+                                        <button type="button" class="station-chip" onclick="setGasStation('Astro 239')">Astro 239</button>
+                                        <button type="button" class="station-chip" onclick="setGasStation('Chevron')">Chevron</button>
+                                        <button type="button" class="station-chip" onclick="setGasStation('Shell')">Shell</button>
+                                        <button type="button" class="station-chip" onclick="setGasStation('ARCO')">ARCO</button>
+                                    </div>
+                                    <div class="bulk-btn-cluster">
+                                        <button type="button" class="add-misc-row-btn" id="addGasRowBtn" onclick="addGasEntryRow()">+ Add Gas Row</button>
+                                        <button type="button" class="add-misc-row-btn bulk-five-btn" id="addGas5RowsBtn" onclick="addBulkGasRows(5)">+ Add 5 Rows</button>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="bulk-header-actions">
-                                <div class="station-quick-chips" title="Click to fill Station on active gas row">
-                                    <button type="button" class="station-chip" onclick="setGasStation('Costco')">Costco</button>
-                                    <button type="button" class="station-chip" onclick="setGasStation('Astro 239')">Astro 239</button>
-                                    <button type="button" class="station-chip" onclick="setGasStation('Chevron')">Chevron</button>
-                                    <button type="button" class="station-chip" onclick="setGasStation('Shell')">Shell</button>
-                                    <button type="button" class="station-chip" onclick="setGasStation('ARCO')">ARCO</button>
+
+                            <div id="gasRowsContainer" class="bulk-rows-container">
+                                <div class="bulk-entry-row gas-entry-row" data-row-idx="0">
+                                    <div class="hq-field-group">
+                                        <label for="gasDateInput">Fill-Up Date</label>
+                                        <input type="date" id="gasDateInput" class="hq-input gas-date-input" oninput="recalcGasPreview()">
+                                    </div>
+                                    <div class="hq-field-group">
+                                        <label for="gasStationInput">Station / Where</label>
+                                        <input type="text" id="gasStationInput" class="hq-input gas-station-input" placeholder="e.g. Costco, Astro 239" onfocus="setActiveGasRow(this)">
+                                    </div>
+                                    <div class="hq-field-group">
+                                        <label for="gasPriceInput">Price / Gal ($)</label>
+                                        <input type="number" step="0.001" min="0" id="gasPriceInput" class="hq-input gas-price-input" placeholder="e.g. 4.50" oninput="recalcGasRow(this, 'price')">
+                                    </div>
+                                    <div class="hq-field-group">
+                                        <label for="gasGallonsInput">Gallons (#)</label>
+                                        <input type="number" step="0.001" min="0" id="gasGallonsInput" class="hq-input gas-gallons-input" placeholder="e.g. 13.672" oninput="recalcGasRow(this, 'gallons')">
+                                    </div>
+                                    <div class="hq-field-group">
+                                        <label for="gasTotalInput">Total Cost ($)</label>
+                                        <input type="number" step="0.01" min="0" id="gasTotalInput" class="hq-input gas-total-input" placeholder="Auto-calc" oninput="recalcGasRow(this, 'total')">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="hq-live-preview-bar bulk-summary-bar3">
+                            <div class="preview-metric">
+                                <span class="preview-label">⛽ Fill-Ups Queued</span>
+                                <span class="preview-val cyan" id="previewGasCount">1 Fill-Up</span>
+                            </div>
+                            <div class="preview-metric">
+                                <span class="preview-label">🛢️ Total Gallons</span>
+                                <span class="preview-val amber" id="previewGasGallons">0.000 gal</span>
+                            </div>
+                            <div class="preview-metric">
+                                <span class="preview-label">💸 Combined Gas Total</span>
+                                <span class="preview-val emerald" id="previewGasTotalCost">$0.00</span>
+                            </div>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- SECTION 5: GEAR & VEHICLE UPKEEP (OPTIONAL TOGGLE) -->
+                <section class="eos-card collapsed" id="eosSecExpense" data-sec="expense">
+                    <div class="eos-card-head" onclick="if(event.target.tagName!=='INPUT') toggleEosCard('expense')">
+                        <span class="eos-card-title">🎒 Expenses &amp; Upkeep</span>
+                        <span class="eos-chip" id="eosChipExpense">Optional — off</span>
+                        <label class="eos-switch-label" onclick="event.stopPropagation()">
+                            <input type="checkbox" id="eosToggleExpense" onchange="onEosToggleSection('expense', this.checked)">
+                            <span>Add expense?</span>
+                        </label>
+                        <span class="eos-caret">▾</span>
+                    </div>
+                    <div class="eos-card-body" id="hqFormExpense">
+                        <div class="bulk-entry-subcard expense-bulk-subcard">
+                            <div class="misc-pay-header">
+                                <div class="misc-pay-title-wrap">
+                                    <span class="misc-badge-icon">🎒</span>
+                                    <div>
+                                        <h4>Gear & Vehicle Maintenance Ledger (Single or Bulk Entry)</h4>
+                                        <p>Enter one item or click <strong>+ Add Expense Row</strong> / <strong>+ Add 5 Rows</strong> to log multiple tax-deductible items in bulk</p>
+                                    </div>
                                 </div>
                                 <div class="bulk-btn-cluster">
-                                    <button type="button" class="add-misc-row-btn" id="addGasRowBtn" onclick="addGasEntryRow()">+ Add Gas Row</button>
-                                    <button type="button" class="add-misc-row-btn bulk-five-btn" id="addGas5RowsBtn" onclick="addBulkGasRows(5)">+ Add 5 Rows</button>
+                                    <button type="button" class="add-misc-row-btn" id="addExpenseRowBtn" onclick="addExpenseEntryRow()">+ Add Expense Row</button>
+                                    <button type="button" class="add-misc-row-btn bulk-five-btn" id="addExpense5RowsBtn" onclick="addBulkExpenseRows(5)">+ Add 5 Rows</button>
+                                </div>
+                            </div>
+
+                            <div id="expenseRowsContainer" class="bulk-rows-container">
+                                <div class="bulk-entry-row expense-entry-row" data-row-idx="0">
+                                    <div class="hq-field-group">
+                                        <label for="expDateInput">Date</label>
+                                        <input type="date" id="expDateInput" class="hq-input exp-date-input" oninput="recalcExpensePreview()">
+                                    </div>
+                                    <div class="hq-field-group">
+                                        <label for="expCategoryInput">Category (Col B)</label>
+                                        <select id="expCategoryInput" class="hq-select exp-category-input" onchange="recalcExpensePreview()">
+                                            <option value="Gear">🎒 Gear & Supplies</option>
+                                            <option value="Vehicle Maintenance">🛞 Vehicle Maintenance</option>
+                                        </select>
+                                    </div>
+                                    <div class="hq-field-group">
+                                        <label for="expNameInput">Item / Service Name</label>
+                                        <input type="text" id="expNameInput" class="hq-input exp-name-input" placeholder="e.g. Insulated Bag or Oil Change" oninput="recalcExpensePreview()">
+                                    </div>
+                                    <div class="hq-field-group">
+                                        <label for="expDescInput">Description / Notes</label>
+                                        <input type="text" id="expDescInput" class="hq-input exp-desc-input" placeholder="e.g. Mobil 1 0W-20 & filter" oninput="recalcExpensePreview()">
+                                    </div>
+                                    <div class="hq-field-group">
+                                        <label for="expCostInput">Cost ($)</label>
+                                        <input type="number" step="0.01" min="0" id="expCostInput" class="hq-input exp-cost-input" placeholder="e.g. 45.00" oninput="recalcExpensePreview()">
+                                    </div>
                                 </div>
                             </div>
                         </div>
 
-                        <div id="gasRowsContainer" class="bulk-rows-container">
-                            <div class="bulk-entry-row gas-entry-row" data-row-idx="0">
-                                <div class="hq-field-group">
-                                    <label for="gasDateInput">Fill-Up Date</label>
-                                    <input type="date" id="gasDateInput" class="hq-input gas-date-input" required oninput="recalcGasPreview()">
-                                </div>
-                                <div class="hq-field-group">
-                                    <label for="gasStationInput">Station / Where</label>
-                                    <input type="text" id="gasStationInput" class="hq-input gas-station-input" placeholder="e.g. Costco, Astro 239" required onfocus="setActiveGasRow(this)">
-                                </div>
-                                <div class="hq-field-group">
-                                    <label for="gasPriceInput">Price / Gal ($)</label>
-                                    <input type="number" step="0.001" min="0" id="gasPriceInput" class="hq-input gas-price-input" placeholder="e.g. 4.50" required oninput="recalcGasRow(this, 'price')">
-                                </div>
-                                <div class="hq-field-group">
-                                    <label for="gasGallonsInput">Gallons (#)</label>
-                                    <input type="number" step="0.001" min="0" id="gasGallonsInput" class="hq-input gas-gallons-input" placeholder="e.g. 13.672" required oninput="recalcGasRow(this, 'gallons')">
-                                </div>
-                                <div class="hq-field-group">
-                                    <label for="gasTotalInput">Total Cost ($)</label>
-                                    <input type="number" step="0.01" min="0" id="gasTotalInput" class="hq-input gas-total-input" placeholder="Auto-calc" required oninput="recalcGasRow(this, 'total')">
-                                </div>
+                        <div class="hq-live-preview-bar bulk-summary-bar3">
+                            <div class="preview-metric">
+                                <span class="preview-label">🎒 Gear & Supplies Subtotal</span>
+                                <span class="preview-val cyan" id="previewExpGearTotal">$0.00</span>
+                            </div>
+                            <div class="preview-metric">
+                                <span class="preview-label">🛞 Vehicle Upkeep Subtotal</span>
+                                <span class="preview-val amber" id="previewExpMaintTotal">$0.00</span>
+                            </div>
+                            <div class="preview-metric">
+                                <span class="preview-label">🧾 Combined Deductible Total</span>
+                                <span class="preview-val emerald" id="previewExpCombinedTotal">$0.00 (1 Item)</span>
                             </div>
                         </div>
                     </div>
+                </section>
 
-                    <!-- LIVE BULK GAS SUMMARY BAR -->
-                    <div class="hq-live-preview-bar bulk-summary-bar3">
-                        <div class="preview-metric">
-                            <span class="preview-label">⛽ Fill-Ups Queued</span>
-                            <span class="preview-val cyan" id="previewGasCount">1 Fill-Up</span>
-                        </div>
-                        <div class="preview-metric">
-                            <span class="preview-label">🛢️ Total Gallons</span>
-                            <span class="preview-val amber" id="previewGasGallons">0.000 gal</span>
-                        </div>
-                        <div class="preview-metric">
-                            <span class="preview-label">💸 Combined Gas Total</span>
-                            <span class="preview-val emerald" id="previewGasTotalCost">$0.00</span>
-                        </div>
+                <!-- SECTION 6: PRESTIGE RATINGS & COMPLIMENTS (OPTIONAL TOGGLE, COLLAPSED BY DEFAULT) -->
+                <section class="eos-card collapsed" id="eosSecRatings" data-sec="ratings">
+                    <div class="eos-card-head" onclick="if(event.target.tagName!=='INPUT') toggleEosCard('ratings')">
+                        <span class="eos-card-title">⭐ Dasher Ratings</span>
+                        <span class="eos-chip" id="eosChipRatings">Optional — off</span>
+                        <label class="eos-switch-label" onclick="event.stopPropagation()">
+                            <input type="checkbox" id="eosToggleRatings" onchange="onEosToggleSection('ratings', this.checked)">
+                            <span>Update ratings?</span>
+                        </label>
+                        <span class="eos-caret">▾</span>
                     </div>
-
-                    <div class="hq-modal-footer">
-                        <span class="vault-target-indicator" id="gasVaultTargetBadge">⛽ Syncs to Gas_Vault & Monthly Tabs</span>
-                        <div class="hq-footer-btn-group">
-                            <button type="button" id="clearGasFormBtn" class="hq-clear-btn" onclick="resetGasFormClean()">🧹 Clear Gas Rows</button>
-                            <button type="submit" id="submitGasBtn" class="hq-submit-btn">⛽ Save Gas Fill-Up(s) to Vault</button>
-                        </div>
-                    </div>
-                </form>
-
-                <!-- TAB 3: LOG GEAR & VEHICLE UPKEEP (SINGLE OR BULK MULTI-ROW BUILDER) -->
-                <form id="hqFormExpense" class="hq-tab-pane" style="display: none;" onsubmit="submitExpenseForm(event)">
-                    <div class="bulk-entry-subcard expense-bulk-subcard">
-                        <div class="misc-pay-header">
-                            <div class="misc-pay-title-wrap">
-                                <span class="misc-badge-icon">🎒</span>
-                                <div>
-                                    <h4>Gear & Vehicle Maintenance Ledger (Single or Bulk Entry)</h4>
-                                    <p>Enter one item or click <strong>+ Add Expense Row</strong> / <strong>+ Add 5 Rows</strong> to log multiple tax-deductible items in bulk</p>
-                                </div>
+                    <div class="eos-card-body" id="hqFormRatings">
+                        <div class="hq-form-grid-3">
+                            <div class="hq-field-group">
+                                <label for="ratLifetimeInput">Lifetime Deliveries</label>
+                                <input type="number" step="1" id="ratLifetimeInput" class="hq-input">
                             </div>
-                            <div class="bulk-btn-cluster">
-                                <button type="button" class="add-misc-row-btn" id="addExpenseRowBtn" onclick="addExpenseEntryRow()">+ Add Expense Row</button>
-                                <button type="button" class="add-misc-row-btn bulk-five-btn" id="addExpense5RowsBtn" onclick="addBulkExpenseRows(5)">+ Add 5 Rows</button>
+                            <div class="hq-field-group">
+                                <label for="ratCustomerInput">Customer Rating (★)</label>
+                                <input type="number" step="0.01" max="5" id="ratCustomerInput" class="hq-input">
+                            </div>
+                            <div class="hq-field-group">
+                                <label for="ratOverallInput">Overall Dasher Rating (%)</label>
+                                <input type="number" step="1" max="100" id="ratOverallInput" class="hq-input">
                             </div>
                         </div>
 
-                        <div id="expenseRowsContainer" class="bulk-rows-container">
-                            <div class="bulk-entry-row expense-entry-row" data-row-idx="0">
-                                <div class="hq-field-group">
-                                    <label for="expDateInput">Date</label>
-                                    <input type="date" id="expDateInput" class="hq-input exp-date-input" required oninput="recalcExpensePreview()">
-                                </div>
-                                <div class="hq-field-group">
-                                    <label for="expCategoryInput">Category (Col B)</label>
-                                    <select id="expCategoryInput" class="hq-select exp-category-input" required onchange="recalcExpensePreview()">
-                                        <option value="Gear">🎒 Gear & Supplies</option>
-                                        <option value="Vehicle Maintenance">🛞 Vehicle Maintenance</option>
-                                    </select>
-                                </div>
-                                <div class="hq-field-group">
-                                    <label for="expNameInput">Item / Service Name</label>
-                                    <input type="text" id="expNameInput" class="hq-input exp-name-input" placeholder="e.g. Insulated Bag or Oil Change" required oninput="recalcExpensePreview()">
-                                </div>
-                                <div class="hq-field-group">
-                                    <label for="expDescInput">Description / Notes</label>
-                                    <input type="text" id="expDescInput" class="hq-input exp-desc-input" placeholder="e.g. Mobil 1 0W-20 & filter" oninput="recalcExpensePreview()">
-                                </div>
-                                <div class="hq-field-group">
-                                    <label for="expCostInput">Cost ($)</label>
-                                    <input type="number" step="0.01" min="0" id="expCostInput" class="hq-input exp-cost-input" placeholder="e.g. 45.00" required oninput="recalcExpensePreview()">
-                                </div>
+                        <div class="hq-form-grid-5">
+                            <div class="hq-field-group">
+                                <label for="rat5StarInput">5 ★ Count</label>
+                                <input type="number" step="1" id="rat5StarInput" class="hq-input" value="100">
+                            </div>
+                            <div class="hq-field-group">
+                                <label for="rat4StarInput">4 ★ Count</label>
+                                <input type="number" step="1" id="rat4StarInput" class="hq-input" value="0">
+                            </div>
+                            <div class="hq-field-group">
+                                <label for="rat3StarInput">3 ★ Count</label>
+                                <input type="number" step="1" id="rat3StarInput" class="hq-input" value="0">
+                            </div>
+                            <div class="hq-field-group">
+                                <label for="rat2StarInput">2 ★ Count</label>
+                                <input type="number" step="1" id="rat2StarInput" class="hq-input" value="0">
+                            </div>
+                            <div class="hq-field-group">
+                                <label for="rat1StarInput">1 ★ Count</label>
+                                <input type="number" step="1" id="rat1StarInput" class="hq-input" value="0">
+                            </div>
+                        </div>
+
+                        <div class="hq-form-grid-5">
+                            <div class="hq-field-group">
+                                <label for="compCommInput">💬 Communication</label>
+                                <input type="number" step="1" id="compCommInput" class="hq-input">
+                            </div>
+                            <div class="hq-field-group">
+                                <label for="compHandlingInput">🛍️ Order Handling</label>
+                                <input type="number" step="1" id="compHandlingInput" class="hq-input">
+                            </div>
+                            <div class="hq-field-group">
+                                <label for="compInstrInput">📝 Instructions</label>
+                                <input type="number" step="1" id="compInstrInput" class="hq-input">
+                            </div>
+                            <div class="hq-field-group">
+                                <label for="compFriendlyInput">😊 Friendliness</label>
+                                <input type="number" step="1" id="compFriendlyInput" class="hq-input">
+                            </div>
+                            <div class="hq-field-group">
+                                <label for="compAboveInput">🚀 Above & Beyond</label>
+                                <input type="number" step="1" id="compAboveInput" class="hq-input">
                             </div>
                         </div>
                     </div>
-
-                    <!-- LIVE BULK EXPENSE SUMMARY BAR -->
-                    <div class="hq-live-preview-bar bulk-summary-bar3">
-                        <div class="preview-metric">
-                            <span class="preview-label">🎒 Gear & Supplies Subtotal</span>
-                            <span class="preview-val cyan" id="previewExpGearTotal">$0.00</span>
-                        </div>
-                        <div class="preview-metric">
-                            <span class="preview-label">🛞 Vehicle Upkeep Subtotal</span>
-                            <span class="preview-val amber" id="previewExpMaintTotal">$0.00</span>
-                        </div>
-                        <div class="preview-metric">
-                            <span class="preview-label">🧾 Combined Deductible Total</span>
-                            <span class="preview-val emerald" id="previewExpCombinedTotal">$0.00 (1 Item)</span>
-                        </div>
-                    </div>
-
-                    <div class="hq-modal-footer">
-                        <span class="vault-target-indicator">🧾 100% Schedule C Deductible</span>
-                        <div class="hq-footer-btn-group">
-                            <button type="button" id="clearExpenseFormBtn" class="hq-clear-btn" onclick="resetExpenseFormClean()">🧹 Clear Expense Rows</button>
-                            <button type="submit" id="submitExpenseBtn" class="hq-submit-btn">🎒 Save Expense(s) to Ledger</button>
-                        </div>
-                    </div>
-                </form>
-
-                <!-- TAB 4: UPDATE PRESTIGE RATINGS & COMPLIMENTS -->
-                <form id="hqFormRatings" class="hq-tab-pane" style="display: none;" onsubmit="submitRatingsForm(event)">
-                    <div class="hq-form-grid-3">
-                        <div class="hq-field-group">
-                            <label for="ratLifetimeInput">Lifetime Deliveries</label>
-                            <input type="number" step="1" id="ratLifetimeInput" class="hq-input" required>
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="ratCustomerInput">Customer Rating (★)</label>
-                            <input type="number" step="0.01" max="5" id="ratCustomerInput" class="hq-input" required>
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="ratOverallInput">Overall Dasher Rating (%)</label>
-                            <input type="number" step="1" max="100" id="ratOverallInput" class="hq-input" required>
-                        </div>
-                    </div>
-
-                    <div class="hq-form-grid-5">
-                        <div class="hq-field-group">
-                            <label for="rat5StarInput">5 ★ Count</label>
-                            <input type="number" step="1" id="rat5StarInput" class="hq-input" value="100">
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="rat4StarInput">4 ★ Count</label>
-                            <input type="number" step="1" id="rat4StarInput" class="hq-input" value="0">
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="rat3StarInput">3 ★ Count</label>
-                            <input type="number" step="1" id="rat3StarInput" class="hq-input" value="0">
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="rat2StarInput">2 ★ Count</label>
-                            <input type="number" step="1" id="rat2StarInput" class="hq-input" value="0">
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="rat1StarInput">1 ★ Count</label>
-                            <input type="number" step="1" id="rat1StarInput" class="hq-input" value="0">
-                        </div>
-                    </div>
-
-                    <div class="hq-form-grid-5">
-                        <div class="hq-field-group">
-                            <label for="compCommInput">💬 Communication</label>
-                            <input type="number" step="1" id="compCommInput" class="hq-input">
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="compHandlingInput">🛍️ Order Handling</label>
-                            <input type="number" step="1" id="compHandlingInput" class="hq-input">
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="compInstrInput">📝 Instructions</label>
-                            <input type="number" step="1" id="compInstrInput" class="hq-input">
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="compFriendlyInput">😊 Friendliness</label>
-                            <input type="number" step="1" id="compFriendlyInput" class="hq-input">
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="compAboveInput">🚀 Above & Beyond</label>
-                            <input type="number" step="1" id="compAboveInput" class="hq-input">
-                        </div>
-                    </div>
-
-                    <div class="hq-modal-footer">
-                        <span class="vault-target-indicator">🛡️ Updates Platinum Dasher Showcase</span>
-                        <button type="submit" id="submitRatingsBtn" class="hq-submit-btn">⭐ Save Ratings & Compliments</button>
-                    </div>
-                </form>
+                </section>
             </div>
-        </div>
-    </div>
 
-    <!-- 1-CLICK EDIT SHIFT & REIMBURSEMENTS MODAL (v5.1.0) -->
-    <div id="editShiftModalOverlay" class="hq-modal-overlay" style="display: none;" onclick="if(event.target===this) closeEditShiftModal()">
-        <div class="hq-modal-card add-data-modal-card" role="dialog" aria-modal="true" aria-labelledby="editShiftModalTitle">
-            <div class="hq-modal-header">
-                <div class="hq-modal-title-group">
-                    <span class="hq-modal-icon">✏️</span>
-                    <div>
-                        <h3 id="editShiftModalTitle">Edit Shift & Reimbursements</h3>
-                        <p class="hq-modal-sub" id="editShiftModalSub">Modify logged shift details, add reimbursements, and sync to Multi-Year Vault</p>
+            <!-- STICKY BOTTOM LIVE SUMMARY & SAVE EVERYTHING BAR -->
+            <div class="eos-sticky-footer">
+                <div class="eos-validation-banner" id="eosValidationBanner" style="display:none;"></div>
+                <div class="hq-live-preview-bar eos-summary-bar">
+                    <div class="preview-metric">
+                        <span class="preview-label">💰 Gross</span>
+                        <span class="preview-val emerald" id="previewShiftTotal">$0.00</span>
+                    </div>
+                    <div class="preview-metric">
+                        <span class="preview-label">⚡ $/Hr</span>
+                        <span class="preview-val cyan" id="previewShiftHourly">$0.00 / hr</span>
+                    </div>
+                    <div class="preview-metric">
+                        <span class="preview-label">🧾 30% Tax</span>
+                        <span class="preview-val amber" id="previewShiftTaxes">$0.00</span>
+                    </div>
+                    <div class="preview-metric">
+                        <span class="preview-label">🛡️ IRS Mileage</span>
+                        <span class="preview-val purple" id="previewShiftDeduction">$0.00</span>
+                    </div>
+                    <div class="preview-metric">
+                        <span class="preview-label">⛽ Gas</span>
+                        <span class="preview-val" id="eosFooterGas" style="color:#fb7185;">$0.00</span>
+                    </div>
+                    <div class="preview-metric">
+                        <span class="preview-label">🏦 Net Keep</span>
+                        <span class="preview-val emerald" id="eosFooterNet">$0.00</span>
                     </div>
                 </div>
-                <div class="hq-modal-header-right">
-                    <span class="admin-modal-badge" id="editShiftIdBadge">Shift ID: --</span>
-                    <button type="button" class="hq-modal-close" onclick="closeEditShiftModal()" aria-label="Close">&times;</button>
+                <div class="hq-modal-footer eos-footer-actions">
+                    <span class="vault-target-indicator" id="shiftVaultTargetBadge">🏛️ Target: 2026 Vault</span>
+                    <div class="hq-footer-btn-group">
+                        <button type="button" id="clearShiftFormBtn" class="hq-clear-btn" onclick="resetEndOfShiftAll(true)">🧹 Clear</button>
+                        <button type="button" id="saveDraftBtn" class="hq-clear-btn" onclick="saveEosDraft(true)">💾 Save Draft</button>
+                        <button type="submit" id="submitShiftBtn" class="hq-submit-btn">🚀 Save Everything</button>
+                    </div>
                 </div>
             </div>
-
-            <div class="hq-modal-body">
-                <form id="hqFormEditShift" onsubmit="submitEditShiftForm(event)">
-                    <input type="hidden" id="editShiftIdInput">
-                    <input type="hidden" id="editShiftYearInput">
-                    <input type="hidden" id="editShiftMonthInput">
-                    <input type="hidden" id="editShiftOldStartInput">
-
-                    <div class="hq-form-grid-3">
-                        <div class="hq-field-group">
-                            <label for="editShiftStartInput">Start Date & Time</label>
-                            <input type="datetime-local" id="editShiftStartInput" class="hq-input" required oninput="recalcEditShiftPreview()">
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="editShiftEndInput">End Date & Time</label>
-                            <input type="datetime-local" id="editShiftEndInput" class="hq-input" required oninput="recalcEditShiftPreview()">
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="editShiftActiveHoursInput">Active Hours (HH:MM) <span class="auto-calc-hint" id="editShiftTotalHrsHint">Total: 0:00</span></label>
-                            <input type="text" id="editShiftActiveHoursInput" class="hq-input" placeholder="e.g. 5:36" required oninput="recalcEditShiftPreview()">
-                        </div>
-                    </div>
-
-                    <div class="hq-form-grid-3">
-                        <div class="hq-field-group">
-                            <label for="editShiftMilesInput">Miles Driven</label>
-                            <input type="number" step="0.01" min="0" id="editShiftMilesInput" class="hq-input" placeholder="e.g. 119.9" required oninput="recalcEditShiftPreview()">
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="editShiftDeliveriesInput">Deliveries (#)</label>
-                            <input type="number" step="1" min="0" id="editShiftDeliveriesInput" class="hq-input" placeholder="e.g. 16" required oninput="recalcEditShiftPreview()">
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="editShiftNoTipsInput"># of No-Tip Orders</label>
-                            <input type="number" step="1" min="0" id="editShiftNoTipsInput" class="hq-input" value="0" oninput="recalcEditShiftPreview()">
-                        </div>
-                    </div>
-
-                    <div class="hq-form-grid-3">
-                        <div class="hq-field-group">
-                            <label for="editShiftBasePayInput">Base Pay ($)</label>
-                            <input type="number" step="0.01" min="0" id="editShiftBasePayInput" class="hq-input" placeholder="e.g. 59.95" required oninput="recalcEditShiftPreview()">
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="editShiftTipsInput">In-App Tips ($)</label>
-                            <input type="number" step="0.01" min="0" id="editShiftTipsInput" class="hq-input" placeholder="e.g. 42.50" required oninput="recalcEditShiftPreview()">
-                        </div>
-                        <div class="hq-field-group">
-                            <label for="editShiftCashTipsInput">Cash Tips ($)</label>
-                            <input type="number" step="0.01" min="0" id="editShiftCashTipsInput" class="hq-input" value="0.00" oninput="recalcEditShiftPreview()">
-                        </div>
-                    </div>
-
-                    <!-- DEDICATED REIMBURSEMENT & MISC PAY SECTION -->
-                    <div class="misc-pay-subcard" style="border-color: rgba(56, 189, 248, 0.4); background: rgba(15, 23, 42, 0.75);">
-                        <div class="misc-pay-header">
-                            <div class="misc-pay-title-wrap">
-                                <span class="misc-badge-icon" style="background: rgba(56, 189, 248, 0.15); color: #38bdf8;">💵</span>
-                                <div>
-                                    <h4 style="color: #38bdf8;">Reimbursements & Misc Pay Breakdown</h4>
-                                    <p>Add closed-store half pay, cancelled order compensations, peak pay, or extra delivery fees</p>
-                                </div>
-                            </div>
-                            <button type="button" class="add-misc-row-btn" onclick="addEditMiscPayRow()">+ Add Another Item</button>
-                        </div>
-
-                        <div id="editMiscPayRowsContainer" class="misc-rows-container">
-                            <!-- Injected dynamically by openEditShiftModal -->
-                        </div>
-                    </div>
-
-                    <!-- LIVE AUTO-CALCULATED FORMULA PREVIEW BAR -->
-                    <div class="hq-live-preview-bar">
-                        <div class="preview-metric">
-                            <span class="preview-label">💰 Shift Gross Total</span>
-                            <span class="preview-val emerald" id="previewEditShiftTotal">$0.00</span>
-                        </div>
-                        <div class="preview-metric">
-                            <span class="preview-label">⚡ Active Hourly Rate</span>
-                            <span class="preview-val cyan" id="previewEditShiftHourly">$0.00 / hr</span>
-                        </div>
-                        <div class="preview-metric">
-                            <span class="preview-label">🧾 30% Tax Set-Aside</span>
-                            <span class="preview-val amber" id="previewEditShiftTaxes">$0.00</span>
-                        </div>
-                        <div class="preview-metric">
-                            <span class="preview-label">🛡️ IRS Mileage Write-Off</span>
-                            <span class="preview-val purple" id="previewEditShiftDeduction">$0.00</span>
-                        </div>
-                    </div>
-
-                    <div class="hq-modal-footer">
-                        <span class="vault-target-indicator" id="editShiftVaultTargetBadge">🏛️ Target: Vault</span>
-                        <div class="hq-footer-btn-group">
-                            <button type="button" class="hq-clear-btn" onclick="closeEditShiftModal()">Cancel</button>
-                            <button type="submit" id="submitEditShiftBtn" class="hq-submit-btn" style="background: linear-gradient(135deg, #0ea5e9, #2563eb);">💾 Save Shift Changes</button>
-                        </div>
-                    </div>
-                </form>
-            </div>
+            </form>
         </div>
     </div>
 
     <!-- TOAST NOTIFICATION CONTAINER -->
     <div id="hqToastContainer" class="hq-toast-container"></div>
 
-    <script src="script.js?v=5.2.0"></script>
+    <script src="script.js?v=6.0.0"></script>
 </body>
 </html>

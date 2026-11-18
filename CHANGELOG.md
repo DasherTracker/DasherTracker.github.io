@@ -1,5 +1,14 @@
 # Changelog
 
+## [6.0.0] - 2026-11-17
+### Added
+- Redesigned data entry into one End-of-Shift Log screen.
+- Added single Save Everything button for shift, gas, expenses.
+- Added collapsible section cards with live summary chips.
+- Added sticky bottom bar with live net take-home pay.
+- Added automatic browser draft saving while typing entries.
+- Unified Edit Shift into the same streamlined form.
+
 ## [5.2.0] - 2026-11-11
 ### Added
 - Added date picker to every reimbursement and bonus row.

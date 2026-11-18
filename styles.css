@@ -2760,3 +2760,313 @@ tfoot td {
     text-align: center;
 }
 
+/* ==========================================================================
+   END-OF-SHIFT LOG UNIFIED MODAL (v6.0.0)
+   ========================================================================== */
+.eos-gas-quick-btn {
+    padding: 0.55rem 0.78rem;
+    min-width: auto;
+    background: rgba(56, 189, 248, 0.14);
+    border: 1px solid rgba(56, 189, 248, 0.38);
+    color: #38bdf8;
+    box-shadow: none;
+}
+
+.eos-gas-quick-btn:hover {
+    background: rgba(56, 189, 248, 0.25);
+    color: #ffffff;
+}
+
+.eos-modal-card {
+    max-width: 1080px;
+    width: 96%;
+    padding: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    max-height: 92vh;
+}
+
+.eos-modal-card .hq-modal-header {
+    padding: 1rem 1.25rem;
+    margin-bottom: 0;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+    flex-shrink: 0;
+}
+
+.eos-draft-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.25rem 0.65rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    color: #34d399;
+    background: rgba(16, 185, 129, 0.14);
+    border: 1px solid rgba(16, 185, 129, 0.38);
+    border-radius: 999px;
+    white-space: nowrap;
+}
+
+.eos-layout {
+    display: grid;
+    grid-template-columns: 185px minmax(0, 1fr);
+    grid-template-rows: minmax(0, 1fr) auto;
+    gap: 0;
+    min-height: 0;
+    flex: 1;
+    overflow: hidden;
+}
+
+.eos-rail {
+    padding: 1rem 0.75rem;
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+    background: rgba(15, 23, 42, 0.45);
+    overflow-y: auto;
+}
+
+.eos-rail-step {
+    display: flex;
+    align-items: center;
+    gap: 0.55rem;
+    padding: 0.52rem 0.6rem;
+    border-radius: 8px;
+    border: 1px solid transparent;
+    background: transparent;
+    color: var(--text-secondary);
+    font-size: 0.78rem;
+    font-weight: 600;
+    font-family: inherit;
+    text-align: left;
+    cursor: pointer;
+    transition: all 0.18s ease;
+    white-space: nowrap;
+}
+
+.eos-rail-step:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: #f8fafc;
+}
+
+.eos-rail-step.active {
+    background: rgba(56, 189, 248, 0.12);
+    border-color: rgba(56, 189, 248, 0.35);
+    color: #f8fafc;
+}
+
+.eos-step-dot {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.68rem;
+    font-weight: 700;
+    flex-shrink: 0;
+    background: rgba(255, 255, 255, 0.08);
+    color: #cbd5e1;
+}
+
+.eos-rail-step.active .eos-step-dot {
+    background: #38bdf8;
+    color: #0f172a;
+}
+
+.eos-rail-step.done .eos-step-dot {
+    background: #10b981;
+    color: #052e16;
+}
+
+.eos-body {
+    padding: 1rem 1.25rem;
+    max-height: 62vh;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+    min-width: 0;
+}
+
+.eos-body #hqFormShift {
+    display: flex;
+    flex-direction: column;
+    gap: 0.75rem;
+}
+
+.eos-card {
+    border: 1px solid rgba(255, 255, 255, 0.09);
+    border-radius: 12px;
+    background: rgba(15, 23, 42, 0.55);
+    overflow: hidden;
+    transition: border-color 0.2s ease;
+}
+
+.eos-card:focus-within {
+    border-color: rgba(56, 189, 248, 0.35);
+}
+
+.eos-card-head {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    gap: 0.65rem;
+    padding: 0.75rem 1rem;
+    background: rgba(255, 255, 255, 0.03);
+    border: none;
+    color: #f8fafc;
+    font-family: inherit;
+    cursor: pointer;
+    text-align: left;
+    flex-wrap: wrap;
+}
+
+.eos-card-head:hover {
+    background: rgba(255, 255, 255, 0.055);
+}
+
+.eos-card-title {
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: #f8fafc;
+}
+
+.eos-chip {
+    margin-left: auto;
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #38bdf8;
+    background: rgba(56, 189, 248, 0.12);
+    padding: 0.2rem 0.6rem;
+    border-radius: 999px;
+    max-width: 100%;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.eos-switch-label {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    padding: 0.22rem 0.55rem;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.14);
+    font-size: 0.74rem;
+    font-weight: 600;
+    color: #cbd5e1;
+    cursor: pointer;
+    user-select: none;
+}
+
+.eos-switch-label input[type="checkbox"] {
+    accent-color: #10b981;
+    width: 14px;
+    height: 14px;
+    cursor: pointer;
+}
+
+.eos-caret {
+    font-size: 0.82rem;
+    color: var(--text-secondary);
+    transition: transform 0.2s ease;
+    margin-left: 0.15rem;
+}
+
+.eos-card.collapsed .eos-card-body {
+    display: none;
+}
+
+.eos-card.collapsed .eos-caret {
+    transform: rotate(-90deg);
+}
+
+.eos-card-body {
+    padding: 0.95rem 1rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.eos-sticky-footer {
+    grid-column: 1 / -1;
+    position: sticky;
+    bottom: 0;
+    z-index: 10;
+    background: rgba(15, 23, 42, 0.96);
+    backdrop-filter: blur(12px);
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.75rem 1.25rem;
+}
+
+.eos-summary-bar {
+    grid-template-columns: repeat(6, minmax(0, 1fr));
+    margin-top: 0;
+    margin-bottom: 0.6rem;
+    padding: 0.65rem 0.85rem;
+}
+
+.eos-footer-actions {
+    margin-top: 0;
+    padding-top: 0;
+    border-top: none;
+}
+
+.eos-validation-banner {
+    margin-bottom: 0.55rem;
+    padding: 0.55rem 0.85rem;
+    border-radius: 8px;
+    background: rgba(244, 63, 94, 0.14);
+    border: 1px solid rgba(244, 63, 94, 0.45);
+    color: #fda4af;
+    font-size: 0.78rem;
+    font-weight: 600;
+}
+
+.hq-input.eos-invalid {
+    border-color: #fb7185 !important;
+    box-shadow: 0 0 0 2px rgba(244, 63, 94, 0.25) !important;
+}
+
+@media (max-width: 860px) {
+    .eos-modal-card {
+        width: 98%;
+        max-height: 95vh;
+    }
+    .eos-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto minmax(0, 1fr) auto;
+    }
+    .eos-rail {
+        flex-direction: row;
+        overflow-x: auto;
+        border-right: none;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+        padding: 0.5rem 0.75rem;
+    }
+    .eos-body {
+        max-height: none;
+        padding: 0.75rem;
+    }
+    .eos-summary-bar {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.5rem;
+    }
+    .eos-sticky-footer {
+        padding: 0.65rem 0.75rem;
+    }
+    .eos-footer-actions {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.5rem;
+    }
+    .eos-footer-actions .hq-footer-btn-group {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.45rem;
+    }
+}
+
+
